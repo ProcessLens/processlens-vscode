@@ -1,0 +1,105 @@
+{
+  "name": "processlens",
+  "displayName": "ProcessLens",
+  "description": "Track and analyze build, test, and other process times to gain insights and iterate faster.",
+  "publisher": "processlens",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "icon": "images/icon-128.png",
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "processlens.runCommand",
+        "title": "ProcessLens: Run"
+      },
+      {
+        "command": "processlens.openDashboard",
+        "title": "ProcessLens: Open Dashboard"
+      }
+    ],
+    "taskDefinitions": [
+      {
+        "type": "processlens-script",
+        "required": [
+          "script"
+        ],
+        "properties": {
+          "script": "string"
+        }
+      },
+      {
+        "type": "processlens-ad-hoc",
+        "required": [
+          "cmd"
+        ],
+        "properties": {
+          "cmd": "string"
+        }
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "ProcessLens",
+      "properties": {
+        "processlens.captureDeviceInfo": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include OS/CPU/RAM/Node version in events (local only)."
+        },
+        "processlens.statusBar.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show ProcessLens status in the status bar."
+        },
+        "processlens.statusBar.priority": {
+          "type": "number",
+          "default": -10,
+          "description": "Status bar item priority (lower numbers appear more to the left)."
+        },
+        "processlens.storage.backend": {
+          "type": "string",
+          "enum": [
+            "jsonl",
+            "sqlite"
+          ],
+          "default": "jsonl",
+          "description": "Storage backend for events (SQLite support coming soon)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -w -p ./",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.11.0",
+    "@types/uuid": "^9.0.7",
+    "typescript": "^5.4.0",
+    "@vscode/vsce": "^3.6.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ProcessLens/processlens-vscode"
+  },
+  "bugs": {
+    "url": "https://github.com/ProcessLens/processlens-vscode/issues"
+  },
+  "homepage": "https://processlens.dev"
+}
