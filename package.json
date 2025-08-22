@@ -3,7 +3,7 @@
   "displayName": "ProcessLens",
   "description": "Track and analyze build, test, and other process times to gain insights and iterate faster.",
   "publisher": "processlens",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "engines": {
     "vscode": "^1.85.0"
   },

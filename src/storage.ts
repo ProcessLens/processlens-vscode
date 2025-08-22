@@ -61,6 +61,7 @@ export interface EventStore {
     trendPeriodDays?: number
   ): Promise<CommandSummary[]>;
   clear(): Promise<void>;
+  deleteRun(tsStart: number, command: string): Promise<void>;
   getRecentCommands(projectId?: string, limit?: number): Promise<string[]>;
   getProjectStats(): Promise<
     { projectId: string; projectName: string; runs: number }[]
@@ -273,6 +274,35 @@ export class JsonlEventStore implements EventStore {
       await fs.promises.unlink(this.filePath);
     } catch {
       // File doesn't exist, nothing to clear
+    }
+  }
+
+  async deleteRun(tsStart: number, command: string): Promise<void> {
+    try {
+      const content = await fs.promises.readFile(this.filePath, "utf8");
+      const lines = content.split(/\r?\n/).filter(Boolean);
+      const events = lines.map((line) => JSON.parse(line) as EventRecord);
+
+      // Filter out the specific run to delete
+      const filteredEvents = events.filter(
+        (event: EventRecord) =>
+          !(event.tsStart === tsStart && event.command === command)
+      );
+
+      // Rewrite the file without the deleted run
+      const jsonlContent = filteredEvents
+        .map((event: EventRecord) => JSON.stringify(event))
+        .join("\n");
+
+      if (jsonlContent) {
+        await fs.promises.writeFile(this.filePath, jsonlContent + "\n");
+      } else {
+        // If no events left, delete the file
+        await fs.promises.unlink(this.filePath);
+      }
+    } catch (error) {
+      console.error("Error deleting run:", error);
+      throw error;
     }
   }
 

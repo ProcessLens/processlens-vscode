@@ -10,6 +10,8 @@
   };
   let chart = null;
   let isLoadingData = false; // Flag to prevent double loading
+  let isCommandRunning = false; // Flag to track if any command is running
+  let runningTaskExecution = null; // Store current running task execution for cancellation
   let timeFormat = "human"; // "human" or "raw"
   let commandTableSort = { column: "runs", direction: "desc" };
   let commandTablePage = 0;
@@ -101,6 +103,9 @@
     setupMultiSelectDropdown("success", "All");
     setupMultiSelectDropdown("device", "All Devices");
 
+    // Setup custom tooltips for device icons
+    setupDeviceTooltips();
+
     // Single select filter (time window)
     document
       .getElementById("windowFilter")
@@ -136,6 +141,11 @@
         loadData();
       });
 
+    // Clear Filters button
+    document
+      .getElementById("clearFiltersBtn")
+      .addEventListener("click", clearAllFilters);
+
     // Export/Import buttons
     document
       .getElementById("exportDataBtn")
@@ -149,6 +159,11 @@
     document
       .getElementById("importProfileBtn")
       .addEventListener("click", importProfile);
+
+    // Cancel task button
+    document
+      .getElementById("cancelTaskBtn")
+      .addEventListener("click", cancelRunningTask);
 
     // Clear data button
     document.getElementById("clearBtn").addEventListener("click", clearData);
@@ -167,9 +182,23 @@
 
       // Handle play buttons
       if (target.matches(".play-btn")) {
+        if (isCommandRunning) {
+          console.log("Command already running, ignoring play button click");
+          return;
+        }
         const command = target.getAttribute("data-command");
         if (command) {
+          setCommandRunning(true);
           runCommand(command);
+        }
+        return;
+      }
+
+      // Handle delete run buttons
+      if (target.matches(".delete-run-btn")) {
+        const runId = target.getAttribute("data-run-id");
+        if (runId) {
+          deleteRun(runId);
         }
         return;
       }
@@ -460,6 +489,149 @@
     });
   }
 
+  function clearAllFilters() {
+    // Reset all filters to default values
+    currentFilters = {
+      projectId: "",
+      command: "",
+      success: "all",
+      window: "all",
+      deviceInstance: null,
+    };
+
+    // Reset multi-select displays to "All"
+    const projectDisplay = document.getElementById("projectFilterDisplay");
+    const commandDisplay = document.getElementById("commandFilterDisplay");
+    const deviceDisplay = document.getElementById("deviceFilterDisplay");
+
+    if (projectDisplay) projectDisplay.textContent = "All Projects";
+    if (commandDisplay) commandDisplay.textContent = "All Commands";
+    if (deviceDisplay) deviceDisplay.textContent = "All Devices";
+
+    // Reset multi-select checkboxes
+    resetMultiSelectFilter("project", "All Projects");
+    resetMultiSelectFilter("command", "All Commands");
+    resetMultiSelectFilter("device", "All Devices");
+
+    // Reset dropdown selectors
+    const successFilter = document.getElementById("successFilter");
+    const windowFilter = document.getElementById("windowFilter");
+
+    if (successFilter) successFilter.value = "all";
+    if (windowFilter) windowFilter.value = "all";
+
+    // Save settings and reload data
+    saveCurrentSettings();
+    loadData();
+  }
+
+  function resetMultiSelectFilter(filterId, defaultText) {
+    const dropdown = document.getElementById(`${filterId}FilterDropdown`);
+    if (!dropdown) return;
+
+    // Check "All" checkbox and uncheck all others
+    const allCheckbox = dropdown.querySelector(`#${filterId}-all`);
+    const otherCheckboxes = dropdown.querySelectorAll(
+      `input[type="checkbox"]:not(#${filterId}-all)`
+    );
+
+    if (allCheckbox) allCheckbox.checked = true;
+    otherCheckboxes.forEach((cb) => (cb.checked = false));
+  }
+
+  function setupDeviceTooltips() {
+    // Create tooltip element if it doesn't exist
+    let tooltip = document.getElementById("device-tooltip");
+    if (!tooltip) {
+      tooltip = document.createElement("div");
+      tooltip.id = "device-tooltip";
+      tooltip.style.cssText = `
+        position: absolute;
+        background: var(--vscode-editorHoverWidget-background);
+        color: var(--vscode-editorHoverWidget-foreground);
+        border: 1px solid var(--vscode-editorHoverWidget-border);
+        padding: 8px;
+        border-radius: 3px;
+        font-size: 12px;
+        z-index: 1000;
+        pointer-events: none;
+        display: none;
+        max-width: 300px;
+        word-wrap: break-word;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      `;
+      document.body.appendChild(tooltip);
+    }
+
+    // Add event listeners using delegation for dynamic content
+    document.addEventListener("mouseover", function (e) {
+      if (e.target.matches(".device-icon, .device-icon-small")) {
+        const tooltipText = e.target.getAttribute("data-tooltip");
+        if (tooltipText) {
+          tooltip.textContent = tooltipText;
+          tooltip.style.display = "block";
+
+          // Position tooltip near cursor
+          const rect = e.target.getBoundingClientRect();
+          tooltip.style.left = rect.right + 10 + "px";
+          tooltip.style.top = rect.top - 5 + "px";
+        }
+      }
+    });
+
+    document.addEventListener("mouseout", function (e) {
+      if (e.target.matches(".device-icon, .device-icon-small")) {
+        tooltip.style.display = "none";
+      }
+    });
+  }
+
+  function setCommandRunning(running) {
+    isCommandRunning = running;
+    updatePlayButtonStates();
+    updateCancelButtonState();
+  }
+
+  function updateCancelButtonState() {
+    const cancelBtn = document.getElementById("cancelTaskBtn");
+    if (cancelBtn) {
+      cancelBtn.style.display = isCommandRunning ? "inline-block" : "none";
+    }
+  }
+
+  function cancelRunningTask() {
+    if (!isCommandRunning) return;
+
+    vscode.postMessage({
+      type: "CANCEL_TASK",
+    });
+  }
+
+  function deleteRun(runId) {
+    // Send confirmation request to extension (webview can't show confirm dialogs)
+    vscode.postMessage({
+      type: "CONFIRM_DELETE_RUN",
+      runId: runId,
+    });
+  }
+
+  function updatePlayButtonStates() {
+    const playButtons = document.querySelectorAll(".play-btn");
+    playButtons.forEach((btn) => {
+      if (isCommandRunning) {
+        btn.disabled = true;
+        btn.style.opacity = "0.5";
+        btn.style.cursor = "not-allowed";
+        btn.title = "A command is already running...";
+      } else {
+        btn.disabled = false;
+        btn.style.opacity = "1";
+        btn.style.cursor = "pointer";
+        btn.title = "Run this command";
+      }
+    });
+  }
+
   // Handle messages from extension
   window.addEventListener("message", function (event) {
     const message = event.data;
@@ -477,6 +649,12 @@
       case "UPDATED":
         loadData();
         break;
+      case "COMMAND_STARTED":
+        setCommandRunning(true);
+        break;
+      case "COMMAND_COMPLETED":
+        setCommandRunning(false);
+        break;
       case "DATA_CLEARED":
         // Reset filters and reload
         currentFilters = {
@@ -487,6 +665,10 @@
           deviceInstance: null,
         };
         showEmptyState();
+        break;
+      case "RUN_DELETED":
+        // Reload data after run deletion
+        loadData();
         break;
 
       case "PROFILE_IMPORTED":
@@ -1267,6 +1449,9 @@
 
     // Update column visibility
     updateColumnVisibility();
+
+    // Update play button states
+    updatePlayButtonStates();
   }
 
   function updateColumnVisibility() {
@@ -1512,12 +1697,17 @@
         </div>
         <div>
           <span>${formatDuration(Math.round(run.durationMs))}</span>
-          <span class="device-icon" title="Device: ${
+          <span class="device-icon" title="${
             deviceInfo.tooltip
-          }" style="background-color: ${deviceInfo.color}">
+          }" style="background-color: ${deviceInfo.color}" data-tooltip="${
+        deviceInfo.tooltip
+      }">
             ${deviceInfo.icon}
           </span>
           <span class="run-time">${relativeTime}</span>
+          <button class="delete-run-btn" data-run-id="${run.tsStart}-${
+        run.command
+      }" title="Delete this run (cannot be undone)">🗑️</button>
         </div>
       `;
 
@@ -1696,7 +1886,7 @@
     const deviceArray = Array.from(uniqueDevices.values()).slice(0, 3);
     const icons = deviceArray.map((run) => {
       const deviceInfo = getDeviceInfo(run);
-      return `<span class="device-icon-small" title="${deviceInfo.tooltip}" style="background-color: ${deviceInfo.color}">${deviceInfo.icon}</span>`;
+      return `<span class="device-icon-small" title="${deviceInfo.tooltip}" style="background-color: ${deviceInfo.color}" data-tooltip="${deviceInfo.tooltip}">${deviceInfo.icon}</span>`;
     });
 
     // Add "more" indicator if there are additional devices

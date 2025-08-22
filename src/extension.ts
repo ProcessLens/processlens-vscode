@@ -71,6 +71,7 @@ let eventStore: EventStore;
 let statusBarItem: vscode.StatusBarItem;
 let lastRunResult: { success: boolean; durationMs: number } | null = null;
 let dashboardPanels: vscode.WebviewPanel[] = [];
+let currentTaskExecution: vscode.TaskExecution | undefined;
 
 // Format duration in human-readable format (matches dashboard logic)
 function formatDuration(ms: number): string {
@@ -145,6 +146,7 @@ async function runAsTaskAndTime(
   exitCode?: number;
   tsStart: number;
   tsEnd: number;
+  cancelled?: boolean;
 }> {
   return new Promise(async (resolve) => {
     const tsStart = Date.now();
@@ -165,16 +167,29 @@ async function runAsTaskAndTime(
         const tsEnd = Date.now();
         const durationMs = tsEnd - tsStart;
         disposable.dispose();
+
+        // Check if task was cancelled (exit code is typically undefined or negative for cancelled tasks)
+        const wasCancelled = e.exitCode === undefined || e.exitCode < 0;
+
+        // Clear current task execution
+        if (currentTaskExecution === e.execution) {
+          currentTaskExecution = undefined;
+        }
+
         resolve({
           tsStart,
           tsEnd,
           durationMs,
           success: e.exitCode === 0,
           exitCode: e.exitCode ?? undefined,
+          cancelled: wasCancelled,
         });
       }
     });
-    vscode.tasks.executeTask(task);
+
+    // Execute task and store execution for potential cancellation
+    const execution = await vscode.tasks.executeTask(task);
+    currentTaskExecution = execution;
   });
 }
 
@@ -429,6 +444,9 @@ function renderDashboardHtml(
                                     <option value="30">Last 30 days vs previous 30 days</option>
                                 </select>
                             </div>
+            <div class="filter-group">
+                <button id="clearFiltersBtn" class="clear-filters-btn" title="Reset all filters to default values">🔄 Clear Filters</button>
+            </div>
         </div>
         
         <div class="action-buttons">
@@ -442,6 +460,7 @@ function renderDashboardHtml(
                     <button id="importProfileBtn" class="import-btn" title="Import dashboard configuration from a profile">⚙️ Import Profile</button>
                 </div>
                 <button id="signinBtn" class="signin-btn" title="Coming soon! Sign in to sync data across devices">🔐 Sign In</button>
+                <button id="cancelTaskBtn" class="cancel-task-btn" title="Cancel the currently running command" style="display: none;">⏹️ Cancel Task</button>
             </div>
             <div class="danger-actions">
                 <button id="clearBtn" class="clear-btn" title="Permanently delete all ProcessLens data - this cannot be undone!">⚠️ Clear All Data</button>
@@ -587,6 +606,17 @@ export function activate(context: vscode.ExtensionContext) {
     statusBarItem.show();
     context.subscriptions.push(statusBarItem);
   }
+
+  // Set up global task event listeners for dashboard refresh
+  const taskEndListener = vscode.tasks.onDidEndTaskProcess(async (e) => {
+    // Add small delay to ensure any ongoing save operations complete first
+    // This handles cases where tasks are run outside the play button (e.g., via Command Palette)
+    setTimeout(() => {
+      refreshAllDashboards();
+    }, 100);
+  });
+
+  context.subscriptions.push(taskEndListener);
 
   const runCommand = vscode.commands.registerCommand(
     "processlens.runCommand",
@@ -1092,17 +1122,146 @@ export function activate(context: vscode.ExtensionContext) {
 
           case "RUN_COMMAND":
             if (message.command) {
+              // Notify dashboard that command is starting
+              panel.webview.postMessage({
+                type: "COMMAND_STARTED",
+                command: message.command,
+              });
+
               // Execute the command directly using our existing functionality
               const folder = vscode.workspace.workspaceFolders?.[0];
               if (folder) {
                 const taskDefinition: vscode.TaskDefinition = {
                   type: "shell",
                 };
-                await runAsTaskAndTime(
+                const result = await runAsTaskAndTime(
                   message.command,
                   taskDefinition,
                   folder.uri
                 );
+
+                // Don't save cancelled tasks to storage
+                if (result.cancelled) {
+                  console.log("Task was cancelled, not saving to storage");
+
+                  // Notify dashboard that command was cancelled
+                  panel.webview.postMessage({
+                    type: "COMMAND_COMPLETED",
+                    command: message.command,
+                    cancelled: true,
+                  });
+
+                  // Update status bar back to idle
+                  updateStatusBar();
+                  return;
+                }
+
+                // Save the event to storage
+                const deviceId = await getOrCreateDeviceId(context);
+                const hardwareInfo = await getHardwareInfo();
+                const hardwareHash = computeHardwareHash(hardwareInfo);
+                const projectInfo = await getProjectInfo(folder);
+
+                const eventRecord = {
+                  tsStart: result.tsStart,
+                  tsEnd: result.tsEnd,
+                  durationMs: result.durationMs,
+                  exitCode: result.exitCode || 0,
+                  command: message.command,
+                  cwd: folder.uri.fsPath,
+                  projectId: projectInfo?.projectId || "",
+                  projectName: projectInfo?.projectName || "",
+                  deviceId,
+                  hardwareHash,
+                  device: hardwareInfo,
+                };
+
+                await eventStore.append(eventRecord);
+
+                // Update status bar with result
+                updateStatusBar({
+                  success: result.success,
+                  durationMs: result.durationMs,
+                });
+
+                // Notify dashboard that command is completed
+                panel.webview.postMessage({
+                  type: "COMMAND_COMPLETED",
+                  command: message.command,
+                  success: result.success,
+                  durationMs: result.durationMs,
+                });
+
+                // Refresh dashboards AFTER event is saved
+                refreshAllDashboards();
+
+                // Show completion notification
+                const duration = formatDuration(result.durationMs);
+                const status = result.success ? "✅" : "❌";
+                const notificationPromise =
+                  vscode.window.showInformationMessage(
+                    `${status} Command completed in ${duration}`
+                  );
+
+                // Auto-dismiss after 2.5 seconds
+                Promise.race([
+                  notificationPromise,
+                  new Promise((resolve) => setTimeout(resolve, 2500)),
+                ]);
+              }
+            }
+            break;
+
+          case "CANCEL_TASK":
+            if (currentTaskExecution) {
+              currentTaskExecution.terminate();
+              currentTaskExecution = undefined;
+
+              // Notify all dashboards that task was cancelled
+              dashboardPanels.forEach((panel) => {
+                if (panel.webview) {
+                  panel.webview.postMessage({
+                    type: "COMMAND_COMPLETED",
+                    cancelled: true,
+                  });
+                }
+              });
+
+              // Update status bar
+              updateStatusBar();
+
+              vscode.window.showInformationMessage("Task cancelled");
+            }
+            break;
+
+          case "CONFIRM_DELETE_RUN":
+            if (message.runId) {
+              const result = await vscode.window.showWarningMessage(
+                `Are you sure you want to delete this run? This action cannot be undone.`,
+                { modal: true },
+                "Delete Run"
+              );
+
+              if (result === "Delete Run") {
+                console.log("User confirmed run deletion");
+
+                // Parse the run ID to extract timestamp and command
+                const [tsStart, ...commandParts] = message.runId.split("-");
+                const command = commandParts.join("-");
+
+                // Delete the run from storage
+                await eventStore.deleteRun(parseInt(tsStart), command);
+
+                // Notify dashboard that run was deleted
+                panel.webview.postMessage({
+                  type: "RUN_DELETED",
+                });
+
+                vscode.window.showInformationMessage(
+                  "Run deleted successfully"
+                );
+              } else {
+                console.log("User cancelled run deletion");
               }
             }
             break;

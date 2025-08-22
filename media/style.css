@@ -239,6 +239,41 @@ body {
   opacity: 0.8;
 }
 
+.clear-filters-btn {
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: 1px solid var(--vscode-button-secondaryBackground);
+  padding: 6px 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.clear-filters-btn:hover {
+  background: var(--vscode-button-secondaryHoverBackground);
+  border-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.cancel-task-btn {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: 1px solid var(--vscode-button-background);
+  padding: 8px 16px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  margin-left: 8px;
+  transition: all 0.2s ease;
+}
+
+.cancel-task-btn:hover {
+  background: var(--vscode-button-hoverBackground);
+  border-color: var(--vscode-button-hoverBackground);
+}
+
 .signin-btn {
   background: var(--vscode-input-background);
   color: var(--vscode-disabledForeground);
@@ -561,6 +596,24 @@ th {
   font-size: 11px;
 }
 
+.delete-run-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  margin-left: 8px;
+  border-radius: 2px;
+  opacity: 0.6;
+  transition: all 0.2s ease;
+}
+
+.delete-run-btn:hover {
+  opacity: 1;
+  background: var(--vscode-errorForeground);
+  transform: scale(1.1);
+}
+
 .device-icon {
   display: inline-block;
   font-size: 16px;
@@ -570,9 +623,11 @@ th {
   text-align: center;
   line-height: 24px;
   margin: 0 4px;
-  cursor: default;
+  cursor: help;
   border: 2px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  pointer-events: auto;
+  user-select: none;
 }
 
 .device-icon-small {
@@ -584,9 +639,11 @@ th {
   text-align: center;
   line-height: 18px;
   margin: 0 2px;
-  cursor: default;
+  cursor: help;
   border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  pointer-events: auto;
+  user-select: none;
 }
 
 .device-more {
