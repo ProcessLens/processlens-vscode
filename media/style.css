@@ -766,6 +766,7 @@ body {
   gap: 16px;
   margin: 16px 0;
   justify-content: center;
+  align-items: flex-start; /* Align both y-labels and main content to top */
 }
 
 .heatmap-y-labels {
@@ -778,7 +779,8 @@ body {
   text-align: right;
   padding-right: 8px;
   align-items: center; /* Center text in each cell */
-  margin-top: 2px; /* Slight adjustment to align with grid */
+  margin-top: 4px; /* Small adjustment to align with grid cells */
+  align-self: start; /* Align with the start of the heatmap grid */
 }
 
 .heatmap-main {
@@ -1069,6 +1071,19 @@ th {
   top: 0;
   z-index: 10; /* Ensure headers stay on top */
   border-bottom: 2px solid var(--vscode-panel-border); /* Thicker border for headers */
+  cursor: pointer;
+  white-space: nowrap; /* Prevent header text wrapping */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+}
+
+th.sortable {
+  padding-right: 24px; /* Make room for sort indicator */
+}
+
+th.sortable:hover {
+  background: var(--vscode-list-hoverBackground);
 }
 
 /* Column width optimization for many commands */
@@ -1106,9 +1121,33 @@ td:nth-child(4) {
 /* Additional columns (Median, P95, etc.) */
 th:nth-child(n + 5),
 td:nth-child(n + 5) {
-  width: 10%;
-  min-width: 70px;
+  width: 8%;
+  min-width: 85px; /* Increased for better readability */
   text-align: right;
+}
+
+/* Specific adjustments for narrow columns */
+th[data-column="timePerDay"],
+td[data-column="timePerDay"] {
+  min-width: 95px; /* Extra space for Time/Day */
+}
+
+th[data-column="medianMs"],
+td[data-column="medianMs"],
+th[data-column="p95Ms"],
+td[data-column="p95Ms"],
+th[data-column="minMs"],
+td[data-column="minMs"],
+th[data-column="maxMs"],
+td[data-column="maxMs"] {
+  min-width: 80px; /* Consistent width for time columns */
+}
+
+th[data-column="projectedSavings"],
+td[data-column="projectedSavings"],
+th[data-column="optimizationPotential"],
+td[data-column="optimizationPotential"] {
+  min-width: 90px; /* Extra space for longer labels */
 }
 
 .recent-runs {
@@ -1344,9 +1383,16 @@ td:nth-child(n + 5) {
 }
 
 .sort-indicator {
-  font-size: 12px;
+  font-size: 10px;
   color: var(--vscode-foreground);
-  margin-left: 4px;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  text-align: center;
+  opacity: 0.8;
+  pointer-events: none;
 }
 
 /* Trend indicators - consolidated styles */
@@ -1759,9 +1805,11 @@ td:nth-child(n + 5) {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 12px;
-  padding: 8px 0;
+  margin: 16px 20px 12px 20px; /* Proper margins from edges */
+  padding: 12px 16px; /* More generous padding */
   border-top: 1px solid var(--vscode-widget-border);
+  border-radius: 0 0 6px 6px; /* Rounded bottom corners */
+  background: var(--vscode-editor-background);
   font-size: 12px;
 }
 
@@ -1772,26 +1820,46 @@ td:nth-child(n + 5) {
 .pagination-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px; /* More space between elements */
+}
+
+.pagination-controls span {
+  color: var(--vscode-foreground);
+  font-weight: 500;
+  min-width: 80px; /* Prevent layout shift */
+  text-align: center;
 }
 
 .pagination-controls button {
   background: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
-  border: none;
-  padding: 4px 8px;
-  border-radius: 3px;
+  border: 1px solid var(--vscode-button-border);
+  padding: 6px 12px; /* More generous padding */
+  border-radius: 4px;
   cursor: pointer;
   font-size: 11px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  min-width: 80px; /* Consistent button width */
 }
 
 .pagination-controls button:hover:not(:disabled) {
   background: var(--vscode-button-hoverBackground);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.pagination-controls button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .pagination-controls button:disabled {
   background: var(--vscode-button-secondaryBackground);
   color: var(--vscode-button-secondaryForeground);
+  border-color: var(--vscode-widget-border);
   cursor: not-allowed;
-  opacity: 0.6;
+  opacity: 0.5;
+  transform: none;
+  box-shadow: none;
 }

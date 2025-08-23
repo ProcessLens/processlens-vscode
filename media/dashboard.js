@@ -751,6 +751,9 @@
     // Reset loading flag
     isLoadingData = false;
 
+    // Reset pagination to first page when data changes (filters applied)
+    commandTablePage = 0;
+
     // Store data globally for chart tabs
     lastData = {
       runs,
@@ -1429,6 +1432,42 @@
           aVal = a.successRate;
           bVal = b.successRate;
           break;
+        case "totalTimeMs":
+          aVal = a.totalTimeMs;
+          bVal = b.totalTimeMs;
+          break;
+        case "impactScore":
+          aVal = a.impactScore;
+          bVal = b.impactScore;
+          break;
+        case "timePerDay":
+          aVal = a.timePerDayMs;
+          bVal = b.timePerDayMs;
+          break;
+        case "medianMs":
+          aVal = a.medianMs;
+          bVal = b.medianMs;
+          break;
+        case "p95Ms":
+          aVal = a.p95Ms;
+          bVal = b.p95Ms;
+          break;
+        case "minMs":
+          aVal = a.minMs;
+          bVal = b.minMs;
+          break;
+        case "maxMs":
+          aVal = a.maxMs;
+          bVal = b.maxMs;
+          break;
+        case "projectedSavingsMs":
+          aVal = a.projectedSavingsMs;
+          bVal = b.projectedSavingsMs;
+          break;
+        case "optimizationPotential":
+          aVal = a.optimizationPotential;
+          bVal = b.optimizationPotential;
+          break;
         default:
           return 0;
       }
@@ -1714,15 +1753,27 @@
     )} of ${totalCommands} commands
       </div>
       <div class="pagination-controls">
-        <button onclick="prevCommandPage()" ${
+        <button class="pagination-btn" data-action="prev" ${
           commandTablePage === 0 ? "disabled" : ""
         }>← Previous</button>
         <span>Page ${currentPage} of ${totalPages}</span>
-        <button onclick="nextCommandPage()" ${
+        <button class="pagination-btn" data-action="next" ${
           commandTablePage >= totalPages - 1 ? "disabled" : ""
         }>Next →</button>
       </div>
     `;
+
+    // Add event listeners for pagination buttons (CSP compliant)
+    paginationEl.addEventListener("click", (e) => {
+      if (e.target.classList.contains("pagination-btn") && !e.target.disabled) {
+        const action = e.target.getAttribute("data-action");
+        if (action === "prev") {
+          prevCommandPage();
+        } else if (action === "next") {
+          nextCommandPage();
+        }
+      }
+    });
   }
 
   function updateSortIndicators() {
@@ -1742,25 +1793,34 @@
     });
   }
 
-  // Global functions for pagination
+  // Global functions for pagination with boundary checks
   window.nextCommandPage = function () {
-    commandTablePage++;
-    const lastData = vscode.getState();
-    const runs = lastData && lastData.runs ? lastData.runs : [];
-    renderCommandTable(currentCommandData, runs);
+    if (!lastData || !lastData.perCommand) return;
+
+    const totalPages = Math.ceil(
+      lastData.perCommand.length / COMMANDS_PER_PAGE
+    );
+
+    // Boundary check: don't go beyond last page
+    if (commandTablePage < totalPages - 1) {
+      commandTablePage++;
+      renderCommandTable(lastData.perCommand, lastData.runs);
+    }
   };
 
   window.prevCommandPage = function () {
-    commandTablePage--;
-    const lastData = vscode.getState();
-    const runs = lastData && lastData.runs ? lastData.runs : [];
-    renderCommandTable(currentCommandData, runs);
+    if (!lastData || !lastData.perCommand) return;
+
+    // Boundary check: don't go below page 0
+    if (commandTablePage > 0) {
+      commandTablePage--;
+      renderCommandTable(lastData.perCommand, lastData.runs);
+    }
   };
 
   window.sortCommandTable = function (column) {
     console.log("sortCommandTable called with column:", column);
-    console.log("Current sort state:", commandTableSort);
-    console.log("Current data length:", currentCommandData.length);
+    console.log("Current sort state BEFORE:", commandTableSort);
 
     if (commandTableSort.column === column) {
       commandTableSort.direction =
@@ -1769,10 +1829,16 @@
       commandTableSort.column = column;
       commandTableSort.direction = "desc";
     }
+
+    console.log("Current sort state AFTER:", commandTableSort);
+    console.log("Current data length:", currentCommandData.length);
+
     commandTablePage = 0; // Reset to first page
-    const lastData = vscode.getState();
-    const runs = lastData && lastData.runs ? lastData.runs : [];
-    renderCommandTable(currentCommandData, runs);
+
+    // Use current filtered data instead of state
+    if (lastData && lastData.perCommand && lastData.runs) {
+      renderCommandTable(lastData.perCommand, lastData.runs);
+    }
   };
 
   // Global function to run a command
@@ -2312,24 +2378,87 @@
     heatmapGrid.innerHTML = "";
     if (heatmapMonths) heatmapMonths.innerHTML = "";
 
-    // Calculate date range to match GitHub exactly
-    const today = new Date();
+    // Check if we have active time filters that should override the default 365-day view
+    const hasTimeFilter =
+      currentFilters.window && currentFilters.window !== "all";
 
-    // GitHub shows exactly 365 days ending yesterday (not including today)
-    const endDate = new Date(today);
-    endDate.setDate(endDate.getDate() - 1); // End yesterday
-    endDate.setHours(23, 59, 59, 999);
+    let startDate, endDate, gridStartDate;
 
-    // Start from exactly 365 days before the end date
-    const startDate = new Date(endDate);
-    startDate.setDate(startDate.getDate() - 364); // 365 days total
-    startDate.setHours(0, 0, 0, 0); // Start of day
+    if (hasTimeFilter) {
+      // Use filter-based date range for short time periods
+      const now = Date.now();
+      let cutoff;
 
-    // Find the Sunday that starts our grid (may be before startDate)
-    const gridStartDate = new Date(startDate);
-    const dayOfWeek = gridStartDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
-    gridStartDate.setDate(gridStartDate.getDate() - dayOfWeek);
-    gridStartDate.setHours(0, 0, 0, 0);
+      if (
+        currentFilters.window === "custom" &&
+        currentFilters.customFrom &&
+        currentFilters.customTo
+      ) {
+        // Custom date range
+        startDate = new Date(currentFilters.customFrom);
+        endDate = new Date(currentFilters.customTo);
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+      } else {
+        // Predefined time windows
+        switch (currentFilters.window) {
+          case "1h":
+            cutoff = now - 60 * 60 * 1000;
+            break;
+          case "24h":
+            cutoff = now - 24 * 60 * 60 * 1000;
+            break;
+          case "7d":
+            cutoff = now - 7 * 24 * 60 * 60 * 1000;
+            break;
+          case "30d":
+            cutoff = now - 30 * 24 * 60 * 60 * 1000;
+            break;
+          case "90d":
+            cutoff = now - 90 * 24 * 60 * 60 * 1000;
+            break;
+          case "1y":
+            cutoff = now - 365 * 24 * 60 * 60 * 1000;
+            break;
+          default:
+            cutoff = now - 7 * 24 * 60 * 60 * 1000; // Default to 7 days
+        }
+
+        startDate = new Date(cutoff);
+        endDate = new Date(now);
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+      }
+
+      // For short periods (< 30 days), find the Sunday that starts our grid
+      const dayRange = Math.ceil((endDate - startDate) / (24 * 60 * 60 * 1000));
+      if (dayRange <= 30) {
+        gridStartDate = new Date(startDate);
+        const dayOfWeek = gridStartDate.getDay();
+        gridStartDate.setDate(gridStartDate.getDate() - dayOfWeek);
+        gridStartDate.setHours(0, 0, 0, 0);
+      } else {
+        // For longer periods, use standard GitHub-style grid
+        gridStartDate = new Date(startDate);
+        const dayOfWeek = gridStartDate.getDay();
+        gridStartDate.setDate(gridStartDate.getDate() - dayOfWeek);
+        gridStartDate.setHours(0, 0, 0, 0);
+      }
+    } else {
+      // Default GitHub-style 365-day view (includes today)
+      const today = new Date();
+      endDate = new Date(today);
+      endDate.setHours(23, 59, 59, 999); // End of today (not yesterday)
+
+      startDate = new Date(endDate);
+      startDate.setDate(startDate.getDate() - 364); // 365 days total including today
+      startDate.setHours(0, 0, 0, 0);
+
+      gridStartDate = new Date(startDate);
+      const dayOfWeek = gridStartDate.getDay();
+      gridStartDate.setDate(gridStartDate.getDate() - dayOfWeek);
+      gridStartDate.setHours(0, 0, 0, 0);
+    }
 
     // Group runs by date
     const runsByDate = new Map();
@@ -2342,20 +2471,39 @@
       runsByDate.get(dateKey).push(run);
     });
 
+    // Debug: Log data for recent dates
+    console.log("Heatmap debug - Date range:", {
+      startDate: startDate.toISOString().split("T")[0],
+      endDate: endDate.toISOString().split("T")[0],
+      gridStartDate: gridStartDate.toISOString().split("T")[0],
+      totalRuns: runs.length,
+      datesWithData: Array.from(runsByDate.keys()).sort().slice(-7), // Last 7 dates with data
+    });
+
     // Find max runs per day for scaling
     const maxRunsPerDay = Math.max(
       ...Array.from(runsByDate.values()).map((dayRuns) => dayRuns.length),
       1
     );
 
-    // Generate grid: 53 weeks × 7 days
+    // Calculate number of weeks needed based on date range
+    const totalDays = Math.ceil(
+      (endDate - gridStartDate) / (24 * 60 * 60 * 1000)
+    );
+    const weeksNeeded = Math.ceil(totalDays / 7);
+    const maxWeeks =
+      hasTimeFilter && currentFilters.window !== "1y"
+        ? Math.min(weeksNeeded, 53)
+        : 53;
+
+    // Generate grid: dynamic weeks × 7 days
     // Grid layout: each column is a week, each row is a day of week (Sun-Sat)
     const cells = [];
     const monthLabels = [];
     let currentDate = new Date(gridStartDate);
 
     // Generate all cells first
-    for (let week = 0; week < 53; week++) {
+    for (let week = 0; week < maxWeeks; week++) {
       const weekCells = [];
       const weekStartDate = new Date(currentDate);
 
@@ -2399,28 +2547,24 @@
 
       cells.push(weekCells);
 
-      // Track month labels - only when month changes and date is in range
+      // Track month labels - GitHub style (first occurrence of each month)
       if (week === 0) {
-        // First week: only add label if the week start is within our date range
-        if (weekStartDate >= startDate) {
-          monthLabels.push({
-            week: week,
-            month: weekStartDate.getMonth(),
-          });
-        }
+        // Always add first week's month
+        monthLabels.push({
+          week: week,
+          month: weekStartDate.getMonth(),
+          year: weekStartDate.getFullYear(),
+        });
       } else {
         // Check if month changed from previous week
         const prevWeekDate = new Date(
           gridStartDate.getTime() + (week - 1) * 7 * 24 * 60 * 60 * 1000
         );
-        // Only add month label if month changed AND we're within the date range
-        if (
-          weekStartDate.getMonth() !== prevWeekDate.getMonth() &&
-          weekStartDate >= startDate
-        ) {
+        if (weekStartDate.getMonth() !== prevWeekDate.getMonth()) {
           monthLabels.push({
             week: week,
             month: weekStartDate.getMonth(),
+            year: weekStartDate.getFullYear(),
           });
         }
       }
@@ -2543,7 +2687,7 @@
     header.className = "performance-matrix-header";
     header.innerHTML = `
        <h4>⚡ Performance Overview</h4>
-       <p>Your most frequently used commands ranked by performance. Colors indicate speed: <span class="speed-fast">Fast (&lt;1s)</span>, <span class="speed-medium">Medium (1-5s)</span>, <span class="speed-slow">Slow (&gt;5s)</span></p>
+       <p>Your most frequently used commands ranked by performance. Colors indicate relative speed: <span class="speed-fast">Fast</span> (fastest 33%), <span class="speed-medium">Medium</span> (middle 33%), <span class="speed-slow">Slow</span> (slowest 33%)</p>
      `;
     matrix.appendChild(header);
 
@@ -2551,13 +2695,34 @@
     grid.className = "performance-grid";
     matrix.appendChild(grid);
 
+    // Calculate adaptive thresholds based on data distribution
+    const durations = topCommands.map((cmd) => cmd.avgMs).sort((a, b) => a - b);
+    let fastThreshold, slowThreshold;
+
+    if (durations.length >= 3) {
+      // Use percentile-based thresholds for 3+ commands
+      fastThreshold = durations[Math.floor(durations.length * 0.33)]; // 33rd percentile
+      slowThreshold = durations[Math.floor(durations.length * 0.67)]; // 67th percentile
+    } else {
+      // Fallback to simple thresholds for very few commands
+      const minDuration = Math.min(...durations);
+      const maxDuration = Math.max(...durations);
+      const range = maxDuration - minDuration;
+      fastThreshold = minDuration + range * 0.33;
+      slowThreshold = minDuration + range * 0.67;
+    }
+
     topCommands.forEach((cmd) => {
       const card = document.createElement("div");
       card.className = "performance-card";
 
-      // Determine speed class for styling
+      // Determine speed class based on adaptive thresholds
       const speedClass =
-        cmd.avgMs < 1000 ? "fast" : cmd.avgMs < 5000 ? "medium" : "slow";
+        cmd.avgMs <= fastThreshold
+          ? "fast"
+          : cmd.avgMs <= slowThreshold
+          ? "medium"
+          : "slow";
       card.classList.add(`speed-${speedClass}`);
 
       // Better command text handling with smart truncation
