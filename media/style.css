@@ -785,6 +785,29 @@ th {
   color: var(--vscode-descriptionForeground);
 }
 
+/* Trend indicators in Recent Runs */
+.trend-up,
+.trend-down,
+.trend-same {
+  display: inline-block;
+  font-size: 16px;
+  margin-left: 6px;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+.trend-up {
+  color: #f14c4c; /* Red for slower */
+}
+
+.trend-down {
+  color: #73c991; /* Green for faster */
+}
+
+.trend-same {
+  color: var(--vscode-descriptionForeground); /* Gray for similar */
+}
+
 /* Sparklines */
 .sparkline {
   width: 60px;
