@@ -291,6 +291,35 @@ body {
   opacity: 0.7;
 }
 
+.coffee-btn {
+  background: #ffdd00; /* Buy Me a Coffee official yellow */
+  color: #000000;
+  border: 2px solid #ffdd00;
+  font-weight: 600;
+  font-size: 12px;
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.coffee-btn:hover {
+  background: #ffe135; /* Slightly lighter yellow on hover */
+  border-color: #ffe135;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.coffee-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 .cards {
   display: grid;
   grid-template-columns: 1fr;
@@ -396,6 +425,83 @@ body {
   font-style: italic;
 }
 
+/* Responsive design for different screen sizes */
+@media (max-width: 600px) {
+  /* Mobile: Stack cards vertically and adjust table */
+  .cards {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .table-container {
+    flex: 1;
+    min-height: 200px; /* Smaller minimum on mobile */
+  }
+
+  table {
+    font-size: 11px; /* Smaller text on mobile */
+  }
+
+  th,
+  td {
+    padding: 6px 8px; /* Less padding on mobile */
+  }
+
+  /* Hide less important columns on mobile */
+  th:nth-child(n + 6),
+  td:nth-child(n + 6) {
+    display: none;
+  }
+
+  /* Adjust column widths for mobile */
+  th:nth-child(1),
+  td:nth-child(1) {
+    /* Command column */
+    width: 50%;
+    min-width: 150px;
+  }
+
+  th:nth-child(2),
+  td:nth-child(2) {
+    /* Runs column */
+    width: 15%;
+    min-width: 50px;
+  }
+
+  th:nth-child(3),
+  td:nth-child(3) {
+    /* Avg column */
+    width: 20%;
+    min-width: 60px;
+  }
+
+  th:nth-child(4),
+  td:nth-child(4) {
+    /* Success column */
+    width: 15%;
+    min-width: 60px;
+  }
+}
+
+@media (min-width: 601px) and (max-width: 1000px) {
+  /* Tablet: Two column layout with adjusted spacing */
+  .cards {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .table-container {
+    flex: 1;
+    min-height: 250px; /* Medium minimum on tablet */
+  }
+
+  /* Hide some advanced columns on tablet */
+  th:nth-child(n + 8),
+  td:nth-child(n + 8) {
+    display: none;
+  }
+}
+
 @media (min-width: 800px) {
   .cards {
     grid-template-columns: 2fr 1fr;
@@ -411,11 +517,57 @@ body {
   }
 }
 
+@media (min-width: 1200px) {
+  /* Large screens: Show all columns with optimal spacing */
+  .table-container {
+    flex: 1;
+    min-height: 400px; /* Larger minimum on desktop */
+  }
+
+  th:nth-child(1),
+  td:nth-child(1) {
+    /* Command column */
+    width: 35%;
+    min-width: 250px;
+  }
+
+  th:nth-child(2),
+  td:nth-child(2) {
+    /* Runs column */
+    width: 8%;
+    min-width: 60px;
+  }
+
+  th:nth-child(3),
+  td:nth-child(3) {
+    /* Avg column */
+    width: 12%;
+    min-width: 80px;
+  }
+
+  th:nth-child(4),
+  td:nth-child(4) {
+    /* Success column */
+    width: 12%;
+    min-width: 80px;
+  }
+
+  /* Additional columns get more space */
+  th:nth-child(n + 5),
+  td:nth-child(n + 5) {
+    width: 8%;
+    min-width: 70px;
+  }
+}
+
 .card {
   background: var(--vscode-editor-background);
   border: 1px solid var(--vscode-panel-border);
   border-radius: 4px;
   padding: 16px;
+  display: flex;
+  flex-direction: column;
+  min-height: 400px; /* Ensure cards have minimum height */
 }
 
 .card-header {
@@ -492,10 +644,368 @@ body {
   opacity: 0.8;
 }
 
+/* Chart Tabs */
+.chart-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  margin-bottom: 16px;
+  gap: 4px;
+}
+
+.chart-tab {
+  background: transparent;
+  border: none;
+  color: var(--vscode-descriptionForeground);
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: 4px 4px 0 0;
+  font-size: 13px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.chart-tab:hover {
+  background: var(--vscode-list-hoverBackground);
+  color: var(--vscode-foreground);
+}
+
+.chart-tab.active {
+  background: var(--vscode-tab-activeBackground);
+  color: var(--vscode-tab-activeForeground);
+  border-bottom: 2px solid var(--vscode-focusBorder);
+}
+
+.chart-view {
+  display: none;
+}
+
+.chart-view.active {
+  display: block;
+}
+
 .chart-container {
   position: relative;
   height: 300px;
   margin-bottom: 16px;
+}
+
+/* GitHub-Style Heatmap */
+.heatmap-container {
+  padding: 16px 0;
+}
+
+.heatmap-header {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+}
+
+.heatmap-header h3 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: var(--vscode-foreground);
+}
+
+.heatmap-header p {
+  margin: 0 0 12px 0;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.4;
+}
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.heatmap-scale {
+  display: flex;
+  gap: 2px;
+}
+
+.heatmap-cell {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid var(--vscode-panel-border);
+  transition: all 0.1s ease;
+}
+
+.heatmap-cell:hover {
+  transform: scale(1.1);
+  border-color: var(--vscode-focusBorder);
+  z-index: 10;
+  position: relative;
+}
+
+.heatmap-cell.level-0 {
+  background: var(--vscode-editor-background);
+}
+
+.heatmap-cell.level-1 {
+  background: #0e4429;
+}
+
+.heatmap-cell.level-2 {
+  background: #006d32;
+}
+
+.heatmap-cell.level-3 {
+  background: #26a641;
+}
+
+.heatmap-cell.level-4 {
+  background: #39d353;
+}
+
+.heatmap-wrapper {
+  display: flex;
+  gap: 16px;
+  margin: 16px 0;
+  justify-content: center;
+}
+
+.heatmap-y-labels {
+  display: grid;
+  grid-template-rows: repeat(7, 22px); /* Match heatmap grid rows */
+  gap: 4px; /* Match heatmap grid gap */
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  min-width: 35px;
+  text-align: right;
+  padding-right: 8px;
+  align-items: center; /* Center text in each cell */
+  margin-top: 2px; /* Slight adjustment to align with grid */
+}
+
+.heatmap-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start; /* Left align for better month labels */
+}
+
+.heatmap-x-labels {
+  display: grid;
+  grid-template-columns: repeat(53, 22px); /* Match larger grid columns */
+  gap: 4px;
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 12px;
+  text-align: center;
+  width: 100%;
+}
+
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(53, 22px); /* 53 weeks - much larger cells */
+  grid-template-rows: repeat(7, 22px); /* 7 days - much larger cells */
+  gap: 4px; /* Larger gap for better separation */
+  margin-bottom: 12px;
+  grid-auto-flow: column; /* Fill columns first, then rows - this is key! */
+}
+
+.heatmap-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 8px;
+}
+
+.heatmap-month-labels {
+  display: grid;
+  grid-template-columns: repeat(53, 22px); /* Match heatmap grid exactly */
+  gap: 4px; /* Match heatmap grid gap */
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  text-align: center;
+  flex: 1;
+}
+
+.heatmap-year-label {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  margin-left: 12px;
+  align-self: flex-end;
+}
+
+/* Month separator lines */
+.heatmap-grid .month-separator {
+  position: relative;
+}
+
+.heatmap-grid .month-separator::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--vscode-panel-border);
+  opacity: 0.5;
+}
+
+.heatmap-grid .heatmap-cell {
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.heatmap-grid .heatmap-cell:hover {
+  border-color: var(--vscode-focusBorder);
+  transform: scale(1.1);
+}
+
+.heatmap-tooltip {
+  position: absolute;
+  background: var(--vscode-editorHoverWidget-background);
+  color: var(--vscode-editorHoverWidget-foreground);
+  border: 1px solid var(--vscode-editorHoverWidget-border);
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  max-width: 200px;
+}
+
+/* Performance Matrix */
+.performance-container {
+  padding: 16px 0;
+}
+
+.performance-container h3 {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  color: var(--vscode-foreground);
+}
+
+.performance-matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.performance-matrix-header {
+  background: var(--vscode-textBlockQuote-background);
+  border-left: 4px solid var(--vscode-focusBorder);
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.performance-matrix-header h4 {
+  margin: 0 0 8px 0;
+  color: var(--vscode-foreground);
+  font-size: 14px;
+}
+
+.performance-matrix-header p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.4;
+}
+
+.performance-matrix-header .speed-fast {
+  color: #26a641;
+  font-weight: 500;
+}
+
+.performance-matrix-header .speed-medium {
+  color: #fd7e14;
+  font-weight: 500;
+}
+
+.performance-matrix-header .speed-slow {
+  color: #dc3545;
+  font-weight: 500;
+}
+
+.performance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.performance-card {
+  background: var(--vscode-list-hoverBackground);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  padding: 16px;
+  text-align: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.performance-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.performance-card.speed-fast {
+  border-left: 4px solid #26a641;
+}
+
+.performance-card.speed-medium {
+  border-left: 4px solid #fd7e14;
+}
+
+.performance-card.speed-slow {
+  border-left: 4px solid #dc3545;
+}
+
+.performance-card .command-name {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 8px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.performance-card .duration-display {
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.performance-card.speed-fast .duration-display {
+  color: #26a641;
+}
+
+.performance-card.speed-medium .duration-display {
+  color: #fd7e14;
+}
+
+.performance-card.speed-slow .duration-display {
+  color: #dc3545;
+}
+
+.performance-card .stats-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.performance-card .success-rate.success-high {
+  color: #26a641;
+}
+
+.performance-card .success-rate.success-medium {
+  color: #fd7e14;
+}
+
+.performance-card .success-rate.success-low {
+  color: #dc3545;
 }
 
 .chart-legend {
@@ -530,21 +1040,26 @@ body {
 }
 
 .table-container {
-  max-height: 300px;
+  flex: 1; /* Take all available space in the card */
   overflow-y: auto;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  min-height: 300px; /* Minimum height for usability */
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
+  table-layout: fixed; /* Better column width control */
 }
 
 th,
 td {
   text-align: left;
-  padding: 8px 12px;
+  padding: 10px 12px; /* Slightly more padding */
   border-bottom: 1px solid var(--vscode-panel-border);
+  vertical-align: middle;
 }
 
 th {
@@ -552,6 +1067,48 @@ th {
   font-weight: 600;
   position: sticky;
   top: 0;
+  z-index: 10; /* Ensure headers stay on top */
+  border-bottom: 2px solid var(--vscode-panel-border); /* Thicker border for headers */
+}
+
+/* Column width optimization for many commands */
+th:nth-child(1),
+td:nth-child(1) {
+  /* Command column */
+  width: 40%;
+  min-width: 200px;
+}
+
+th:nth-child(2),
+td:nth-child(2) {
+  /* Runs column */
+  width: 10%;
+  min-width: 60px;
+  text-align: center;
+}
+
+th:nth-child(3),
+td:nth-child(3) {
+  /* Avg column */
+  width: 15%;
+  min-width: 80px;
+  text-align: right;
+}
+
+th:nth-child(4),
+td:nth-child(4) {
+  /* Success column */
+  width: 15%;
+  min-width: 80px;
+  text-align: center;
+}
+
+/* Additional columns (Median, P95, etc.) */
+th:nth-child(n + 5),
+td:nth-child(n + 5) {
+  width: 10%;
+  min-width: 70px;
+  text-align: right;
 }
 
 .recent-runs {
@@ -561,13 +1118,42 @@ th {
 }
 
 .run-item {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto 1fr auto 80px auto; /* Fixed width for time ago column */
+  gap: 8px;
   align-items: center;
   padding: 8px 12px;
   background: var(--vscode-list-hoverBackground);
   border-radius: 3px;
   font-size: 12px;
+}
+
+.run-item .run-status {
+  grid-column: 1;
+}
+
+.run-item .run-command {
+  grid-column: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-item .run-duration {
+  grid-column: 3;
+  text-align: right;
+}
+
+.run-item .run-time {
+  grid-column: 4;
+  text-align: right;
+  width: 80px; /* Fixed width prevents shifting */
+  flex-shrink: 0;
+}
+
+.run-item .run-device {
+  grid-column: 5;
+  text-align: right;
 }
 
 .run-status {
@@ -615,35 +1201,49 @@ th {
 }
 
 .device-icon {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 16px;
   width: 24px;
   height: 24px;
   border-radius: 50%;
   text-align: center;
-  line-height: 24px;
+  line-height: 1;
   margin: 0 4px;
   cursor: help;
   border: 2px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   pointer-events: auto;
   user-select: none;
+  background-color: var(--device-color, var(--vscode-button-background));
+  /* Fix hover flicker and positioning */
+  position: relative;
+  transition: none;
+  flex-shrink: 0;
 }
 
 .device-icon-small {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 12px;
   width: 18px;
   height: 18px;
   border-radius: 50%;
   text-align: center;
-  line-height: 18px;
+  line-height: 1;
   margin: 0 2px;
   cursor: help;
   border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   pointer-events: auto;
   user-select: none;
+  background-color: var(--device-color, var(--vscode-button-background));
+  /* Fix hover flicker and positioning */
+  position: relative;
+  transition: none;
+  flex-shrink: 0;
 }
 
 .device-more {
@@ -723,25 +1323,7 @@ th {
   font-weight: 600;
 }
 
-/* Trend indicators */
-.trend-up {
-  color: var(--vscode-testing-iconFailed);
-  margin-left: 8px;
-  font-size: 12px;
-}
-
-.trend-down {
-  color: var(--vscode-testing-iconPassed);
-  margin-left: 8px;
-  font-size: 12px;
-}
-
-.trend-same {
-  color: var(--vscode-foreground);
-  opacity: 0.6;
-  margin-left: 8px;
-  font-size: 12px;
-}
+/* Trend indicators - removed duplicate, see consolidated styles below */
 
 /* Sortable table headers */
 .sortable {
@@ -767,45 +1349,48 @@ th {
   margin-left: 4px;
 }
 
-/* Trend indicators */
+/* Trend indicators - consolidated styles */
 .trend-indicator {
   font-size: 14px;
   font-weight: 600;
 }
 
-.trend-up {
+.trend-indicator.trend-up {
   color: var(--vscode-testing-iconFailed);
 }
 
-.trend-down {
+.trend-indicator.trend-down {
   color: var(--vscode-testing-iconPassed);
 }
 
-.trend-stable {
+.trend-indicator.trend-stable {
   color: var(--vscode-descriptionForeground);
 }
 
-/* Trend indicators in Recent Runs */
-.trend-up,
-.trend-down,
-.trend-same {
+/* Trend indicators in Recent Runs - improved styling */
+.recent-runs .trend-up,
+.recent-runs .trend-down,
+.recent-runs .trend-same {
   display: inline-block;
-  font-size: 16px;
-  margin-left: 6px;
+  font-size: 14px;
+  margin-left: 8px;
   vertical-align: middle;
   line-height: 1;
+  font-weight: 600;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
 }
 
-.trend-up {
-  color: #f14c4c; /* Red for slower */
+.recent-runs .trend-up {
+  color: #ff6b6b; /* Bright red for slower */
 }
 
-.trend-down {
-  color: #73c991; /* Green for faster */
+.recent-runs .trend-down {
+  color: #51cf66; /* Bright green for faster */
 }
 
-.trend-same {
+.recent-runs .trend-same {
   color: var(--vscode-descriptionForeground); /* Gray for similar */
+  opacity: 0.8;
 }
 
 /* Sparklines */
@@ -821,11 +1406,320 @@ th {
   opacity: 0.6;
 }
 
-/* Play button in command column */
-.command-cell {
+/* Impact Analysis Columns */
+.total-time {
+  text-align: right;
+  font-weight: 600;
+  color: var(--vscode-charts-blue);
+}
+
+.time-per-day {
+  text-align: right;
+  font-weight: 500;
+  color: var(--vscode-charts-green);
+}
+
+.impact-score {
+  text-align: center;
+  min-width: 80px;
+}
+
+.impact-bar {
+  position: relative;
+  width: 60px;
+  height: 16px;
+  background: var(--vscode-progressBar-background);
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 0 auto;
+}
+
+.impact-fill {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--vscode-charts-green) 0%,
+    var(--vscode-charts-yellow) 50%,
+    var(--vscode-charts-red) 100%
+  );
+  transition: width 0.3s ease;
+  border-radius: 8px;
+  width: var(--impact-width, 0%);
+}
+
+.impact-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--vscode-editor-foreground);
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+
+/* Performance Predictions Columns */
+.projected-savings {
+  text-align: right;
+  font-weight: 600;
+  color: var(--vscode-charts-purple);
+}
+
+.optimization-potential {
+  text-align: center;
+  min-width: 80px;
+}
+
+.priority-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.priority-high {
+  background: var(--vscode-charts-red);
+  color: white;
+}
+
+.priority-medium {
+  background: var(--vscode-charts-yellow);
+  color: var(--vscode-editor-foreground);
+}
+
+.priority-low {
+  background: var(--vscode-charts-green);
+  color: white;
+}
+
+/* Column visibility control (CSP-compliant) */
+.column-hidden {
+  display: none !important;
+}
+
+.column-visible {
+  display: table-cell !important;
+}
+
+/* General element visibility (CSP-compliant) */
+.element-hidden {
+  display: none !important;
+}
+
+.element-visible {
+  display: block !important;
+}
+
+/* Grid layout utilities (CSP-compliant) */
+.full-width {
+  grid-column: 1 / -1;
+}
+
+/* Enhanced Time Range Dropdown (Amazon-style) */
+.time-range-wrapper {
+  position: relative;
+  display: inline-block;
+  min-width: 150px;
+}
+
+.time-range-display {
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border);
+  color: var(--vscode-input-foreground);
+  padding: 6px 12px;
+  border-radius: 3px;
+  cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  min-height: 20px;
+}
+
+.time-range-display:hover {
+  background: var(--vscode-input-background);
+  border-color: var(--vscode-focusBorder);
+}
+
+.time-range-display::after {
+  content: "▼";
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  margin-left: 8px;
+}
+
+.time-range-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--vscode-dropdown-background);
+  border: 1px solid var(--vscode-dropdown-border);
+  border-radius: 3px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  max-height: 400px;
+  overflow-y: auto;
+  min-width: 280px;
+}
+
+.time-range-section {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.time-range-section:last-child {
+  border-bottom: none;
+}
+
+.time-range-section h4 {
+  margin: 0 0 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vscode-descriptionForeground);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.time-range-option {
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--vscode-foreground);
+  transition: background-color 0.1s ease;
+}
+
+.time-range-option:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.time-range-option[data-selected="true"] {
+  background: var(--vscode-list-activeSelectionBackground);
+  color: var(--vscode-list-activeSelectionForeground);
+  font-weight: 500;
+}
+
+.time-range-option[data-selected="true"]::before {
+  content: "✓ ";
+  color: var(--vscode-charts-green);
+  font-weight: bold;
+}
+
+.custom-range-inputs {
+  padding: 0 16px;
+}
+
+.date-input-group {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
   gap: 8px;
+}
+
+.date-input-group label {
+  min-width: 40px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.custom-date-input {
+  flex: 1;
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border);
+  color: var(--vscode-input-foreground);
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.custom-date-input:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder);
+}
+
+.apply-custom-btn {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  padding: 6px 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  margin-top: 4px;
+  width: 100%;
+}
+
+.apply-custom-btn:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+/* Play button in command column - Fixed layout */
+.command-cell {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.command-text {
+  grid-column: 2;
+  overflow: hidden;
+  min-width: 0;
+  position: relative;
+}
+
+.command-display {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.command-devices {
+  grid-column: 3;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+/* Custom tooltip for commands (prevents layout shift) */
+.command-text[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  background: var(--vscode-editorHoverWidget-background);
+  color: var(--vscode-editorHoverWidget-foreground);
+  border: 1px solid var(--vscode-editorHoverWidget-border);
+  padding: 8px 12px;
+  border-radius: 3px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  max-width: 400px;
+  word-break: break-all;
+  white-space: normal;
+  line-height: 1.4;
+}
+
+.command-text[data-tooltip]:hover::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 12px;
+  border: 4px solid transparent;
+  border-top-color: var(--vscode-editorHoverWidget-border);
+  z-index: 1001;
+  transform: translateY(1px);
 }
 
 .play-btn {

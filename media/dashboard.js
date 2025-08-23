@@ -12,6 +12,15 @@
   let isLoadingData = false; // Flag to prevent double loading
   let isCommandRunning = false; // Flag to track if any command is running
   let runningTaskExecution = null; // Store current running task execution for cancellation
+
+  // Global data store for charts and components
+  let lastData = {
+    runs: [],
+    perCommand: [],
+    projects: [],
+    commands: [],
+    devices: [],
+  };
   let timeFormat = "human"; // "human" or "raw"
   let commandTableSort = { column: "runs", direction: "desc" };
   let commandTablePage = 0;
@@ -21,7 +30,7 @@
   let currentFailedFilter = false;
   let trendPeriodDays = 7; // Default 7 days
 
-  // Column visibility state
+  // Column visibility state - showing most important columns by default
   let visibleColumns = {
     command: true,
     runs: true,
@@ -33,6 +42,11 @@
     successRate: true,
     trend: false,
     sparkline: false,
+    totalTime: true, // IMPORTANT: Shows biggest time sinks
+    impact: true, // IMPORTANT: Visual impact score
+    timePerDay: false, // Less critical for most users
+    projectedSavings: false, // Performance predictions
+    optimizationPotential: false, // Optimization priority
   };
 
   // Time formatting functions
@@ -80,12 +94,12 @@
     // Ensure all dropdown menus are closed on load
     const columnMenu = document.querySelector(".column-menu");
     if (columnMenu) {
-      columnMenu.style.display = "none";
+      columnMenu.classList.add("element-hidden");
     }
 
-    // Close all multi-select dropdowns
+    // Close all multi-select dropdowns using CSS classes (CSP-compliant)
     document.querySelectorAll(".multi-select-dropdown").forEach((dd) => {
-      dd.style.display = "none";
+      dd.classList.add("element-hidden");
     });
 
     // Debug: Check if global functions are available
@@ -103,13 +117,17 @@
     setupMultiSelectDropdown("success", "All");
     setupMultiSelectDropdown("device", "All Devices");
 
+    // Set up enhanced time range dropdown
+    setupTimeRangeDropdown();
+
     // Setup custom tooltips for device icons
     setupDeviceTooltips();
 
-    // Single select filter (time window)
-    document
-      .getElementById("windowFilter")
-      .addEventListener("change", updateFilters);
+    // Setup chart tabs
+    setupChartTabs();
+
+    // Time range filter is handled by setupTimeRangeDropdown()
+    // No need for additional event listener here
 
     // Time format toggle
     document
@@ -145,6 +163,14 @@
     document
       .getElementById("clearFiltersBtn")
       .addEventListener("click", clearAllFilters);
+
+    // Coffee button
+    document.getElementById("coffeeBtn").addEventListener("click", () => {
+      // Send message to extension to open Buy Me a Coffee page
+      vscode.postMessage({
+        type: "OPEN_COFFEE_LINK",
+      });
+    });
 
     // Export/Import buttons
     document
@@ -228,10 +254,9 @@
       const columnMenu = document.querySelector(".column-menu");
 
       if (event.target === columnBtn) {
-        columnMenu.style.display =
-          columnMenu.style.display === "none" ? "block" : "none";
+        columnMenu.classList.toggle("element-hidden");
       } else if (!columnMenu.contains(event.target)) {
-        columnMenu.style.display = "none";
+        columnMenu.classList.add("element-hidden");
       }
     });
 
@@ -265,7 +290,9 @@
       projectId: getMultiSelectValues("project"),
       command: getMultiSelectValues("command"),
       success: getMultiSelectValues("success"),
-      window: document.getElementById("windowFilter").value, // Keep single select for time window
+      window: currentFilters.window || "7d", // Use current time range filter
+      customFrom: currentFilters.customFrom, // Include custom date range
+      customTo: currentFilters.customTo, // Include custom date range
       deviceInstance: getMultiSelectDeviceInstances(),
     };
 
@@ -515,10 +542,26 @@
 
     // Reset dropdown selectors
     const successFilter = document.getElementById("successFilter");
-    const windowFilter = document.getElementById("windowFilter");
 
     if (successFilter) successFilter.value = "all";
-    if (windowFilter) windowFilter.value = "all";
+
+    // Reset time range to default
+    currentFilters.window = "7d";
+    const timeRangeDisplay = document.getElementById("timeRangeDisplay");
+    if (timeRangeDisplay) {
+      timeRangeDisplay.textContent = "Last 7 days";
+      // Reset time range dropdown selection
+      const dropdown = document.getElementById("timeRangeDropdown");
+      if (dropdown) {
+        dropdown.querySelectorAll(".time-range-option").forEach((opt) => {
+          opt.removeAttribute("data-selected");
+        });
+        const defaultOption = dropdown.querySelector('[data-value="7d"]');
+        if (defaultOption) {
+          defaultOption.setAttribute("data-selected", "true");
+        }
+      }
+    }
 
     // Save settings and reload data
     saveCurrentSettings();
@@ -571,10 +614,33 @@
           tooltip.textContent = tooltipText;
           tooltip.style.display = "block";
 
-          // Position tooltip near cursor
+          // Position tooltip near cursor, accounting for scroll
           const rect = e.target.getBoundingClientRect();
-          tooltip.style.left = rect.right + 10 + "px";
-          tooltip.style.top = rect.top - 5 + "px";
+          const scrollTop =
+            window.pageYOffset || document.documentElement.scrollTop;
+          const scrollLeft =
+            window.pageXOffset || document.documentElement.scrollLeft;
+
+          // Check if this is in Recent Runs section (smaller space)
+          const isInRecentRuns = e.target.closest(".recent-runs") !== null;
+
+          if (isInRecentRuns) {
+            // Position to the left of the icon in Recent Runs
+            // First position it off-screen to measure width
+            tooltip.style.left = "-9999px";
+            tooltip.style.top = rect.top + scrollTop - 5 + "px";
+
+            // Wait for next frame to get accurate width
+            requestAnimationFrame(() => {
+              const tooltipWidth = tooltip.offsetWidth;
+              tooltip.style.left =
+                rect.left + scrollLeft - tooltipWidth - 10 + "px";
+            });
+          } else {
+            // Position to the right in Command Summary (more space)
+            tooltip.style.left = rect.right + scrollLeft + 10 + "px";
+            tooltip.style.top = rect.top + scrollTop - 5 + "px";
+          }
         }
       }
     });
@@ -595,7 +661,11 @@
   function updateCancelButtonState() {
     const cancelBtn = document.getElementById("cancelTaskBtn");
     if (cancelBtn) {
-      cancelBtn.style.display = isCommandRunning ? "inline-block" : "none";
+      if (isCommandRunning) {
+        cancelBtn.classList.remove("element-hidden");
+      } else {
+        cancelBtn.classList.add("element-hidden");
+      }
     }
   }
 
@@ -681,6 +751,18 @@
     // Reset loading flag
     isLoadingData = false;
 
+    // Store data globally for chart tabs
+    lastData = {
+      runs,
+      perCommand,
+      projects,
+      commands,
+      devices,
+    };
+
+    // Re-render the currently active chart tab with new filtered data
+    rerenderActiveChartTab();
+
     // Store data AND settings for re-rendering
     vscode.setState({
       runs,
@@ -703,8 +785,16 @@
     updateFilterOptions("command", commands, "All Commands");
     updateFilterOptions("device", devices, "All Devices");
 
-    // Set default project to most active one if not already set
-    if (!currentFilters.projectId && projects.length > 0) {
+    // Set default project to most active one if not already set and no saved state
+    const savedState = vscode.getState();
+    const hasExistingFilters =
+      savedState && savedState.settings && savedState.settings.filters;
+
+    if (
+      !currentFilters.projectId &&
+      projects.length > 0 &&
+      !hasExistingFilters
+    ) {
       const defaultProject = projects[0]; // Already sorted by activity
       setMultiSelectDefault(
         "project",
@@ -712,21 +802,19 @@
         defaultProject.label
       );
       currentFilters.projectId = defaultProject.value;
-      // Don't reload - just update filters and continue with current data
-      // The user can manually refresh if they want the filtered data
       console.log("Set default project to:", defaultProject.label);
     }
 
     if (runs.length === 0) {
-      showEmptyState();
+      showEmptyState(currentFilters);
       return;
     }
 
-    // Show content
-    document.querySelector(".loading").style.display = "none";
-    document.querySelector(".empty-state").style.display = "none";
-    document.querySelector(".cards").style.display = "grid";
-    document.querySelector(".global-stats").style.display = "flex";
+    // Show content using CSS classes (CSP-compliant)
+    document.querySelector(".loading").classList.add("element-hidden");
+    document.querySelector(".empty-state").classList.add("element-hidden");
+    document.querySelector(".cards").classList.remove("element-hidden");
+    document.querySelector(".global-stats").classList.remove("element-hidden");
 
     // Render chart with error handling
     try {
@@ -752,6 +840,9 @@
 
     // Render recent runs (last 10)
     renderRecentRuns(runs.slice(-10));
+
+    // Set device icon colors using CSS custom properties (CSP-compliant)
+    setDeviceIconColors();
   }
 
   function renderGlobalStats(runs, perCommand, projects, commands, devices) {
@@ -787,14 +878,13 @@
     display.addEventListener("click", function (e) {
       e.stopPropagation();
 
-      // Close other dropdowns
+      // Close other dropdowns using CSS classes (CSP-compliant)
       document.querySelectorAll(".multi-select-dropdown").forEach((dd) => {
-        if (dd !== dropdown) dd.style.display = "none";
+        if (dd !== dropdown) dd.classList.add("element-hidden");
       });
 
-      // Toggle this dropdown
-      dropdown.style.display =
-        dropdown.style.display === "none" ? "block" : "none";
+      // Toggle this dropdown using CSS classes (CSP-compliant)
+      dropdown.classList.toggle("element-hidden");
     });
 
     // Handle checkbox changes - use event delegation to handle dynamically added options
@@ -818,7 +908,7 @@
     if (!document.hasMultiSelectClickHandler) {
       document.addEventListener("click", function () {
         document.querySelectorAll(".multi-select-dropdown").forEach((dd) => {
-          dd.style.display = "none";
+          dd.classList.add("element-hidden");
         });
       });
       document.hasMultiSelectClickHandler = true;
@@ -966,16 +1056,33 @@
       dropdown.appendChild(optionDiv);
     });
 
-    // Reset display to show "All" only if not currently showing a specific selection
+    // Update display text based on current selections
     if (display) {
-      const currentlyShowingSpecific =
-        !display.textContent.includes("All") &&
-        !display.textContent.includes("selected");
-      if (!currentlyShowingSpecific) {
+      const checkedSpecificBoxes = dropdown.querySelectorAll(
+        'input[type="checkbox"]:not([id$="-all"]):checked'
+      );
+      const allCheckbox = dropdown.querySelector('input[id$="-all"]');
+
+      if (
+        allCheckbox &&
+        allCheckbox.checked &&
+        checkedSpecificBoxes.length === 0
+      ) {
         display.textContent = defaultText;
+      } else if (checkedSpecificBoxes.length === 1) {
+        const label = checkedSpecificBoxes[0].nextElementSibling.textContent;
+        display.textContent =
+          label.length > 25 ? label.substring(0, 25) + "..." : label;
+      } else if (checkedSpecificBoxes.length > 1) {
+        display.textContent = `${checkedSpecificBoxes.length} selected`;
+      } else {
+        // Fallback to "All" if nothing is selected
+        display.textContent = defaultText;
+        if (allCheckbox) allCheckbox.checked = true;
       }
+
       console.log(
-        `updateFilterOptions for ${filterId}: keeping display as "${display.textContent}"`
+        `updateFilterOptions for ${filterId}: display set to "${display.textContent}"`
       );
     }
   }
@@ -1374,8 +1481,8 @@
             /"/g,
             "&quot;"
           )}">▶</button>
-          <div class="command-text" title="${cmd.command}">
-            ${cmd.command}
+          <div class="command-text" data-tooltip="${cmd.command}">
+            <span class="command-display">${cmd.command}</span>
           </div>
           <div class="command-devices">
             ${deviceIcons}
@@ -1399,16 +1506,16 @@
         <td data-column="avgMs" class="avg-duration">${formatDuration(
           Math.round(cmd.avgMs)
         )}</td>
-        <td data-column="medianMs" class="median-duration" style="display: none;">${formatDuration(
+        <td data-column="medianMs" class="median-duration column-hidden">${formatDuration(
           Math.round(cmd.medianMs || cmd.avgMs)
         )}</td>
-        <td data-column="p95Ms" class="p95-duration" style="display: none;">${formatDuration(
+        <td data-column="p95Ms" class="p95-duration column-hidden">${formatDuration(
           Math.round(cmd.p95Ms || cmd.avgMs)
         )}</td>
-        <td data-column="minMs" class="min-duration" style="display: none;">${formatDuration(
+        <td data-column="minMs" class="min-duration column-hidden">${formatDuration(
           Math.round(cmd.minMs || cmd.avgMs)
         )}</td>
-        <td data-column="maxMs" class="max-duration" style="display: none;">${formatDuration(
+        <td data-column="maxMs" class="max-duration column-hidden">${formatDuration(
           Math.round(cmd.maxMs || cmd.avgMs)
         )}</td>
         <td data-column="successRate" class="success-rate ${successClass} clickable" data-filter-failed="${cmd.command.replace(
@@ -1417,15 +1524,51 @@
       )}">
           ${successRate}%
         </td>
-        <td data-column="trend" class="trend-indicator ${trendClass}" style="display: none;" title="Performance trend for selected period">
+        <td data-column="trend" class="trend-indicator ${trendClass} column-hidden" title="Performance trend for selected period">
           ${trendIcon}
         </td>
-        <td data-column="sparkline" class="sparkline-cell" style="display: none;"></td>
+        <td data-column="sparkline" class="sparkline-cell column-hidden"></td>
+        <td data-column="totalTime" class="total-time column-visible" title="Total time consumed: ${formatDuration(
+          cmd.totalTimeMs
+        )}">
+          ${formatDuration(Math.round(cmd.totalTimeMs))}
+        </td>
+        <td data-column="impact" class="impact-score column-visible" title="Impact score: ${
+          cmd.impactScore
+        }/100">
+          <div class="impact-bar" data-impact="${cmd.impactScore}">
+            <div class="impact-fill"></div>
+            <span class="impact-text">${cmd.impactScore}</span>
+          </div>
+        </td>
+        <td data-column="timePerDay" class="time-per-day column-hidden" title="Average time per day: ${formatDuration(
+          cmd.timePerDay
+        )}">
+          ${formatDuration(Math.round(cmd.timePerDay))}
+        </td>
+        <td data-column="projectedSavings" class="projected-savings column-hidden" title="Potential savings: ${formatDuration(
+          cmd.projectedSavingsMs || 0
+        )}">
+          ${formatDuration(Math.round(cmd.projectedSavingsMs || 0))}
+        </td>
+        <td data-column="optimizationPotential" class="optimization-potential column-hidden" title="Optimization priority: ${
+          cmd.optimizationPotential || "low"
+        }">
+          <span class="priority-badge priority-${
+            cmd.optimizationPotential || "low"
+          }">${(cmd.optimizationPotential || "low").toUpperCase()}</span>
+        </td>
       `;
       tbody.appendChild(row);
 
       // Store command data on the row for later access
       row.commandData = cmd;
+
+      // Set impact bar width using CSS custom property (CSP-compliant)
+      const impactBar = row.querySelector(".impact-bar");
+      if (impactBar) {
+        impactBar.style.setProperty("--impact-width", `${cmd.impactScore}%`);
+      }
 
       // Add sparkline if column is visible
       if (visibleColumns.sparkline) {
@@ -1452,26 +1595,41 @@
 
     // Update play button states
     updatePlayButtonStates();
+
+    // Set device icon colors using CSS custom properties (CSP-compliant)
+    setDeviceIconColors();
   }
 
   function updateColumnVisibility() {
     const table = document.getElementById("commandTable");
     if (!table) return;
 
-    // Update header visibility
+    // Update header visibility using CSS classes (CSP-compliant)
     const headers = table.querySelectorAll("th[data-column]");
     headers.forEach((header) => {
       const column = header.getAttribute("data-column");
-      header.style.display = visibleColumns[column] ? "" : "none";
+      if (visibleColumns[column]) {
+        header.classList.remove("column-hidden");
+        header.classList.add("column-visible");
+      } else {
+        header.classList.remove("column-visible");
+        header.classList.add("column-hidden");
+      }
     });
 
-    // Update cell visibility
+    // Update cell visibility using CSS classes (CSP-compliant)
     const rows = table.querySelectorAll("tbody tr");
     rows.forEach((row) => {
       const cells = row.querySelectorAll("td[data-column]");
       cells.forEach((cell) => {
         const column = cell.getAttribute("data-column");
-        cell.style.display = visibleColumns[column] ? "" : "none";
+        if (visibleColumns[column]) {
+          cell.classList.remove("column-hidden");
+          cell.classList.add("column-visible");
+        } else {
+          cell.classList.remove("column-visible");
+          cell.classList.add("column-hidden");
+        }
 
         // If sparkline column is being shown and doesn't have content, render it
         if (
@@ -1628,15 +1786,128 @@
   // Global function to filter recent runs by command
   window.filterByCommand = function (command) {
     currentCommandFilter = command;
-    renderRecentRuns(lastData.runs);
+    if (lastData && lastData.runs) {
+      renderRecentRuns(lastData.runs);
+    }
   };
 
   // Global function to filter recent runs by failed status
   window.filterByFailed = function (command) {
     currentCommandFilter = command;
     currentFailedFilter = true;
-    renderRecentRuns(lastData.runs);
+    if (lastData && lastData.runs) {
+      renderRecentRuns(lastData.runs);
+    }
   };
+
+  function setupTimeRangeDropdown() {
+    const display = document.getElementById("timeRangeDisplay");
+    const dropdown = document.getElementById("timeRangeDropdown");
+
+    if (!display || !dropdown) {
+      console.log("Time range elements not found, skipping setup");
+      return;
+    }
+
+    // Toggle dropdown on display click
+    display.addEventListener("click", function (e) {
+      e.stopPropagation();
+
+      // Close other dropdowns
+      document.querySelectorAll(".multi-select-dropdown").forEach((dd) => {
+        dd.classList.add("element-hidden");
+      });
+
+      // Toggle time range dropdown
+      dropdown.classList.toggle("element-hidden");
+    });
+
+    // Handle time range option clicks
+    dropdown.addEventListener("click", function (e) {
+      const option = e.target.closest(".time-range-option");
+      if (option) {
+        // Remove previous selection
+        dropdown.querySelectorAll(".time-range-option").forEach((opt) => {
+          opt.removeAttribute("data-selected");
+        });
+
+        // Mark new selection
+        option.setAttribute("data-selected", "true");
+
+        // Update display text
+        display.textContent = option.textContent;
+
+        // Update current filter
+        const value = option.getAttribute("data-value");
+        currentFilters.window = value;
+
+        // Close dropdown
+        dropdown.classList.add("element-hidden");
+
+        // Update filters
+        updateFilters();
+      }
+    });
+
+    // Handle custom date range
+    const applyBtn = document.getElementById("applyCustomRange");
+    const fromDate = document.getElementById("customFromDate");
+    const toDate = document.getElementById("customToDate");
+
+    if (applyBtn && fromDate && toDate) {
+      applyBtn.addEventListener("click", function () {
+        const from = fromDate.value;
+        const to = toDate.value;
+
+        if (from && to) {
+          // Remove previous selection
+          dropdown.querySelectorAll(".time-range-option").forEach((opt) => {
+            opt.removeAttribute("data-selected");
+          });
+
+          // Update display with custom range
+          const fromFormatted = new Date(from).toLocaleDateString();
+          const toFormatted = new Date(to).toLocaleDateString();
+          display.textContent = `${fromFormatted} - ${toFormatted}`;
+
+          // Set custom filter
+          currentFilters.window = "custom";
+          currentFilters.customFrom = from;
+          currentFilters.customTo = to;
+
+          // Close dropdown
+          dropdown.classList.add("element-hidden");
+
+          // Update filters
+          updateFilters();
+        }
+      });
+    }
+
+    // Prevent dropdown close when clicking inside
+    dropdown.addEventListener("click", function (e) {
+      e.stopPropagation();
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener("click", function () {
+      dropdown.classList.add("element-hidden");
+    });
+  }
+
+  function setDeviceIconColors() {
+    // Set background colors for device icons using CSS custom properties
+    document
+      .querySelectorAll(
+        ".device-icon[data-device-color], .device-icon-small[data-device-color]"
+      )
+      .forEach((icon) => {
+        const color = icon.getAttribute("data-device-color");
+        if (color) {
+          icon.style.setProperty("--device-color", color);
+        }
+      });
+  }
 
   function renderRecentRuns(runs) {
     const container = document.getElementById("recentRuns");
@@ -1686,29 +1957,30 @@
       const deviceInfo = getDeviceInfo(run);
 
       item.innerHTML = `
-        <div>
-          <span class="run-status ${success ? "success" : "fail"}">
-            ${success ? "✅" : "❌"}
-          </span>
-          <span class="command-text" title="${run.command}">${
-        run.command
-      }</span>
-          ${trendIndicator}
-        </div>
-        <div>
-          <span>${formatDuration(Math.round(run.durationMs))}</span>
+        <span class="run-status ${success ? "success" : "fail"}">
+          ${success ? "✅" : "❌"}
+        </span>
+        <span class="run-command" title="${run.command}">
+          ${run.command}${trendIndicator}
+        </span>
+        <span class="run-duration">
+          ${formatDuration(Math.round(run.durationMs))}
+        </span>
+        <span class="run-time">
+          ${relativeTime}
+        </span>
+        <span class="run-device">
           <span class="device-icon" title="${
             deviceInfo.tooltip
-          }" style="background-color: ${deviceInfo.color}" data-tooltip="${
+          }" data-device-color="${deviceInfo.color}" data-tooltip="${
         deviceInfo.tooltip
       }">
             ${deviceInfo.icon}
           </span>
-          <span class="run-time">${relativeTime}</span>
           <button class="delete-run-btn" data-run-id="${run.tsStart}-${
         run.command
       }" title="Delete this run (cannot be undone)">🗑️</button>
-        </div>
+        </span>
       `;
 
       container.appendChild(item);
@@ -1886,7 +2158,7 @@
     const deviceArray = Array.from(uniqueDevices.values()).slice(0, 3);
     const icons = deviceArray.map((run) => {
       const deviceInfo = getDeviceInfo(run);
-      return `<span class="device-icon-small" title="${deviceInfo.tooltip}" style="background-color: ${deviceInfo.color}" data-tooltip="${deviceInfo.tooltip}">${deviceInfo.icon}</span>`;
+      return `<span class="device-icon-small" title="${deviceInfo.tooltip}" data-device-color="${deviceInfo.color}" data-tooltip="${deviceInfo.tooltip}">${deviceInfo.icon}</span>`;
     });
 
     // Add "more" indicator if there are additional devices
@@ -1901,21 +2173,429 @@
     return icons.join("");
   }
 
-  function showEmptyState() {
-    // Hide loading and show empty state
-    document.querySelector(".loading").style.display = "none";
-    document.querySelector(".cards").style.display = "none";
-    document.querySelector(".empty-state").style.display = "block";
+  function showEmptyState(filters = {}) {
+    // Hide loading and show empty state using CSS classes (CSP-compliant)
+    document.querySelector(".loading").classList.add("element-hidden");
+    document.querySelector(".cards").classList.add("element-hidden");
+    document.querySelector(".empty-state").classList.remove("element-hidden");
 
     // Hide global stats when empty
-    document.querySelector(".global-stats").style.display = "none";
+    document.querySelector(".global-stats").classList.add("element-hidden");
 
-    // Reset filter dropdowns
-    document.getElementById("projectFilter").innerHTML =
-      '<option value="">All Projects</option>';
-    document.getElementById("commandFilter").innerHTML =
-      '<option value="">All Commands</option>';
-    document.getElementById("deviceFilter").innerHTML =
-      '<option value="">All Devices</option>';
+    // Update empty state message based on filters
+    const emptyStateEl = document.querySelector(".empty-state");
+    if (emptyStateEl) {
+      let message = "";
+      let suggestion = "";
+
+      // Check if it's due to time range filtering
+      if (
+        filters.window === "custom" &&
+        filters.customFrom &&
+        filters.customTo
+      ) {
+        const fromDate = new Date(filters.customFrom).toLocaleDateString();
+        const toDate = new Date(filters.customTo).toLocaleDateString();
+        message = `📅 No data found in the selected time range: ${fromDate} - ${toDate}`;
+        suggestion =
+          "Try selecting a different date range or check if you have any commands recorded during this period.";
+      } else if (
+        filters.window &&
+        filters.window !== "all" &&
+        filters.window !== "7d"
+      ) {
+        const timeLabels = {
+          "1h": "last hour",
+          "24h": "last 24 hours",
+          "30d": "last 30 days",
+          "90d": "last 3 months",
+          "1y": "last year",
+        };
+        const timeLabel = timeLabels[filters.window] || filters.window;
+        message = `⏰ No commands recorded in the ${timeLabel}`;
+        suggestion =
+          "Try expanding the time range or run some commands to start tracking performance.";
+      } else if (hasActiveFilters(filters)) {
+        message = "🔍 No data matches your current filters";
+        suggestion =
+          "Try adjusting your filters (Project, Command, Success, or Device) to see more data.";
+      } else {
+        // Default empty state (no data at all)
+        message = "👋 Welcome to ProcessLens!";
+        suggestion =
+          "Start tracking your command execution times to identify performance trends and bottlenecks.";
+      }
+
+      // Update the empty state content
+      emptyStateEl.innerHTML = `
+        <div class="welcome-message">
+          <h2>${message}</h2>
+          <p>${suggestion}</p>
+          <div class="getting-started">
+            <h3>Getting Started:</h3>
+            <ol>
+              <li>Click <strong>"ProcessLens: Run"</strong> in the Command Palette</li>
+              <li>Select a package.json script or enter a custom command</li>
+              <li>Watch the dashboard populate with performance data!</li>
+            </ol>
+            <p class="tip">💡 <strong>Tip:</strong> You can also browse your shell history or run package.json scripts!</p>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  function hasActiveFilters(filters) {
+    return (
+      (filters.projectId && filters.projectId.length > 0) ||
+      (filters.command && filters.command.length > 0) ||
+      (filters.success && filters.success !== "all") ||
+      (filters.deviceInstance && filters.deviceInstance.length > 0)
+    );
+  }
+
+  function rerenderActiveChartTab() {
+    const activeTab = document.querySelector(".chart-tab.active");
+    if (!activeTab || !lastData) return;
+
+    const targetTab = activeTab.getAttribute("data-tab");
+
+    // Render the active chart with current filtered data
+    if (targetTab === "heatmap") {
+      renderHeatmap(lastData.runs);
+    } else if (targetTab === "performance") {
+      renderPerformanceMatrix(lastData.perCommand);
+    }
+    // Timeline chart is handled by the main chart rendering in renderData()
+  }
+
+  function setupChartTabs() {
+    const tabs = document.querySelectorAll(".chart-tab");
+    const views = document.querySelectorAll(".chart-view");
+
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const targetTab = tab.getAttribute("data-tab");
+
+        // Update active tab
+        tabs.forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+
+        // Update active view
+        views.forEach((view) => {
+          view.classList.remove("active");
+          view.classList.add("element-hidden");
+        });
+
+        const targetView = document.getElementById(`${targetTab}Chart`);
+        if (targetView) {
+          targetView.classList.add("active");
+          targetView.classList.remove("element-hidden");
+
+          // Render specific chart type
+          if (targetTab === "heatmap" && lastData) {
+            renderHeatmap(lastData.runs);
+          } else if (targetTab === "performance" && lastData) {
+            renderPerformanceMatrix(lastData.perCommand);
+          }
+        }
+      });
+    });
+  }
+
+  function renderHeatmap(runs) {
+    const heatmapGrid = document.getElementById("heatmapGrid");
+    const heatmapMonths = document.getElementById("heatmapMonths");
+    if (!heatmapGrid || !runs || runs.length === 0) return;
+
+    // Clear existing content
+    heatmapGrid.innerHTML = "";
+    if (heatmapMonths) heatmapMonths.innerHTML = "";
+
+    // Calculate date range to match GitHub exactly
+    const today = new Date();
+
+    // GitHub shows exactly 365 days ending yesterday (not including today)
+    const endDate = new Date(today);
+    endDate.setDate(endDate.getDate() - 1); // End yesterday
+    endDate.setHours(23, 59, 59, 999);
+
+    // Start from exactly 365 days before the end date
+    const startDate = new Date(endDate);
+    startDate.setDate(startDate.getDate() - 364); // 365 days total
+    startDate.setHours(0, 0, 0, 0); // Start of day
+
+    // Find the Sunday that starts our grid (may be before startDate)
+    const gridStartDate = new Date(startDate);
+    const dayOfWeek = gridStartDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    gridStartDate.setDate(gridStartDate.getDate() - dayOfWeek);
+    gridStartDate.setHours(0, 0, 0, 0);
+
+    // Group runs by date
+    const runsByDate = new Map();
+    runs.forEach((run) => {
+      const date = new Date(run.tsEnd);
+      const dateKey = date.toISOString().split("T")[0]; // YYYY-MM-DD
+      if (!runsByDate.has(dateKey)) {
+        runsByDate.set(dateKey, []);
+      }
+      runsByDate.get(dateKey).push(run);
+    });
+
+    // Find max runs per day for scaling
+    const maxRunsPerDay = Math.max(
+      ...Array.from(runsByDate.values()).map((dayRuns) => dayRuns.length),
+      1
+    );
+
+    // Generate grid: 53 weeks × 7 days
+    // Grid layout: each column is a week, each row is a day of week (Sun-Sat)
+    const cells = [];
+    const monthLabels = [];
+    let currentDate = new Date(gridStartDate);
+
+    // Generate all cells first
+    for (let week = 0; week < 53; week++) {
+      const weekCells = [];
+      const weekStartDate = new Date(currentDate);
+
+      for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
+        const dateKey = currentDate.toISOString().split("T")[0];
+        const dayRuns = runsByDate.get(dateKey) || [];
+        const runCount = dayRuns.length;
+
+        // Only show data for dates within our actual range
+        const isInRange = currentDate >= startDate && currentDate <= endDate;
+        const actualRunCount = isInRange ? runCount : 0;
+
+        // Calculate intensity (0-4 levels)
+        const intensity =
+          actualRunCount === 0
+            ? 0
+            : Math.min(4, Math.ceil((actualRunCount / maxRunsPerDay) * 4));
+
+        const cell = document.createElement("div");
+        cell.className = `heatmap-cell level-${intensity}`;
+
+        cell.setAttribute("data-date", dateKey);
+        cell.setAttribute("data-runs", actualRunCount);
+        cell.setAttribute(
+          "data-day",
+          currentDate.toLocaleDateString("en-US", { weekday: "long" })
+        );
+
+        // Always add tooltips, even for dates outside range (they'll show 0 runs)
+        cell.addEventListener("mouseenter", (e) => {
+          showHeatmapTooltip(e, dateKey, actualRunCount, dayRuns);
+        });
+
+        cell.addEventListener("mouseleave", () => {
+          hideHeatmapTooltip();
+        });
+
+        weekCells.push(cell);
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      cells.push(weekCells);
+
+      // Track month labels - only when month changes and date is in range
+      if (week === 0) {
+        // First week: only add label if the week start is within our date range
+        if (weekStartDate >= startDate) {
+          monthLabels.push({
+            week: week,
+            month: weekStartDate.getMonth(),
+          });
+        }
+      } else {
+        // Check if month changed from previous week
+        const prevWeekDate = new Date(
+          gridStartDate.getTime() + (week - 1) * 7 * 24 * 60 * 60 * 1000
+        );
+        // Only add month label if month changed AND we're within the date range
+        if (
+          weekStartDate.getMonth() !== prevWeekDate.getMonth() &&
+          weekStartDate >= startDate
+        ) {
+          monthLabels.push({
+            week: week,
+            month: weekStartDate.getMonth(),
+          });
+        }
+      }
+    }
+
+    // Add all cells to the grid
+    cells.forEach((weekCells) => {
+      weekCells.forEach((cell) => {
+        heatmapGrid.appendChild(cell);
+      });
+    });
+
+    // Generate month labels based on tracked positions
+    if (heatmapMonths) {
+      const monthNames = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
+      heatmapMonths.innerHTML = "";
+
+      // Create 53 week slots
+      for (let week = 0; week < 53; week++) {
+        const monthLabel = document.createElement("div");
+
+        // Find if this week starts a new month
+        const monthPos = monthLabels.find((ml) => ml.week === week);
+        if (monthPos) {
+          monthLabel.textContent = monthNames[monthPos.month];
+        }
+
+        heatmapMonths.appendChild(monthLabel);
+      }
+    }
+
+    // Add year label (GitHub-style)
+    const heatmapYear = document.getElementById("heatmapYear");
+    if (heatmapYear) {
+      const endYear = endDate.getFullYear();
+      const startYear = startDate.getFullYear();
+
+      // If the range spans two years, show both
+      if (startYear !== endYear) {
+        heatmapYear.textContent = `${startYear}-${endYear}`;
+      } else {
+        heatmapYear.textContent = endYear.toString();
+      }
+    }
+
+    // Remove week labels for now - they were causing confusion
+    const heatmapXLabels = document.getElementById("heatmapXLabels");
+    if (heatmapXLabels) {
+      heatmapXLabels.innerHTML = "";
+    }
+  }
+
+  function showHeatmapTooltip(event, date, runCount, runs) {
+    const tooltip = document.getElementById("heatmapTooltip");
+    if (!tooltip) return;
+
+    const formattedDate = new Date(date).toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    let content = `<strong>${formattedDate}</strong><br/>`;
+    if (runCount === 0) {
+      content += "No commands executed";
+    } else {
+      content += `${runCount} command${runCount === 1 ? "" : "s"} executed`;
+      if (runs.length > 0) {
+        const totalTime = runs.reduce((sum, run) => sum + run.durationMs, 0);
+        content += `<br/>Total time: ${formatDuration(totalTime)}`;
+      }
+    }
+
+    tooltip.innerHTML = content;
+    tooltip.classList.remove("element-hidden");
+
+    // Position tooltip
+    const rect = event.target.getBoundingClientRect();
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    const scrollLeft =
+      window.pageXOffset || document.documentElement.scrollLeft;
+
+    tooltip.style.left =
+      rect.left + scrollLeft + rect.width / 2 - tooltip.offsetWidth / 2 + "px";
+    tooltip.style.top = rect.top + scrollTop - tooltip.offsetHeight - 8 + "px";
+  }
+
+  function hideHeatmapTooltip() {
+    const tooltip = document.getElementById("heatmapTooltip");
+    if (tooltip) {
+      tooltip.classList.add("element-hidden");
+    }
+  }
+
+  function renderPerformanceMatrix(commands) {
+    const matrix = document.getElementById("performanceMatrix");
+    if (!matrix || !commands || commands.length === 0) return;
+
+    matrix.innerHTML = "";
+
+    // Show top 10 commands by frequency
+    const topCommands = commands.slice(0, 10);
+
+    // Add explanation header
+    const header = document.createElement("div");
+    header.className = "performance-matrix-header";
+    header.innerHTML = `
+       <h4>⚡ Performance Overview</h4>
+       <p>Your most frequently used commands ranked by performance. Colors indicate speed: <span class="speed-fast">Fast (&lt;1s)</span>, <span class="speed-medium">Medium (1-5s)</span>, <span class="speed-slow">Slow (&gt;5s)</span></p>
+     `;
+    matrix.appendChild(header);
+
+    const grid = document.createElement("div");
+    grid.className = "performance-grid";
+    matrix.appendChild(grid);
+
+    topCommands.forEach((cmd) => {
+      const card = document.createElement("div");
+      card.className = "performance-card";
+
+      // Determine speed class for styling
+      const speedClass =
+        cmd.avgMs < 1000 ? "fast" : cmd.avgMs < 5000 ? "medium" : "slow";
+      card.classList.add(`speed-${speedClass}`);
+
+      // Better command text handling with smart truncation
+      const maxLength = 30;
+      let commandText = cmd.command;
+      let isCommandTruncated = false;
+
+      if (cmd.command.length > maxLength) {
+        // Try to truncate at word boundary
+        const truncated = cmd.command.substring(0, maxLength);
+        const lastSpace = truncated.lastIndexOf(" ");
+        if (lastSpace > maxLength * 0.6) {
+          // If we can truncate at a reasonable word boundary
+          commandText = truncated.substring(0, lastSpace) + "...";
+        } else {
+          commandText = truncated + "...";
+        }
+        isCommandTruncated = true;
+      }
+      // successRate is a decimal from storage (0.01 = 1%), convert to percentage
+      const successRate = Math.round(cmd.successRate * 100);
+      const successClass =
+        successRate >= 80
+          ? "success-high"
+          : successRate >= 50
+          ? "success-medium"
+          : "success-low";
+
+      card.innerHTML = `
+         <div class="command-name" title="${cmd.command}">${commandText}</div>
+         <div class="duration-display">${formatDuration(cmd.avgMs)}</div>
+         <div class="stats-row">
+           <span class="run-count">${cmd.runs} runs</span>
+           <span class="success-rate ${successClass}">${successRate}% ✓</span>
+         </div>
+       `;
+
+      grid.appendChild(card);
+    });
   }
 })();

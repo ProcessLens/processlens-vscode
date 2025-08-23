@@ -5,6 +5,12 @@ import * as path from "path";
 export interface ProjectInfo {
   projectId: string;
   projectName: string;
+  // Enhanced for global database
+  globalProjectId: string; // Git-based, machine-independent
+  localProjectId: string; // Machine-specific for local storage
+  projectPath: string; // For local reference
+  gitOriginUrl?: string; // For team collaboration
+  repositoryName?: string; // Extracted from git URL
 }
 
 function simpleHash(input: string): string {
@@ -60,21 +66,64 @@ async function getPackageJsonName(
   }
 }
 
+function extractRepositoryName(gitUrl: string): string {
+  // Extract repo name from various Git URL formats
+  const patterns = [
+    /github\.com[\/:]([^\/]+)\/([^\/\.]+)/, // GitHub
+    /gitlab\.com[\/:]([^\/]+)\/([^\/\.]+)/, // GitLab
+    /bitbucket\.org[\/:]([^\/]+)\/([^\/\.]+)/, // Bitbucket
+    /[\/:]([^\/]+)\/([^\/\.]+)$/, // Generic
+  ];
+
+  for (const pattern of patterns) {
+    const match = gitUrl.match(pattern);
+    if (match) {
+      return `${match[1]}/${match[2]}`;
+    }
+  }
+
+  // Fallback: extract last two path segments
+  const parts = gitUrl.replace(/\.git$/, "").split("/");
+  if (parts.length >= 2) {
+    return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
+  }
+
+  return gitUrl;
+}
+
 export async function getProjectInfo(
   workspaceFolder: vscode.WorkspaceFolder
 ): Promise<ProjectInfo> {
   const packageName = await getPackageJsonName(workspaceFolder);
   const gitOrigin = await getGitOriginUrl(workspaceFolder);
+  const projectPath = workspaceFolder.uri.fsPath;
 
-  let projectId: string;
+  // Global Project ID: Git-based, machine-independent (for team collaboration)
+  let globalProjectId: string;
+  let repositoryName: string | undefined;
+
   if (gitOrigin) {
-    projectId = simpleHash(gitOrigin + "|" + packageName);
+    repositoryName = extractRepositoryName(gitOrigin);
+    // Use git origin + package name for global identification
+    globalProjectId = simpleHash(`git:${gitOrigin}|${packageName}`);
   } else {
-    projectId = simpleHash(workspaceFolder.uri.fsPath + "|" + packageName);
+    // Fallback: use package name only (less precise but still useful)
+    globalProjectId = simpleHash(`pkg:${packageName}`);
   }
+
+  // Local Project ID: Machine-specific (for local storage and disambiguation)
+  const localProjectId = simpleHash(`local:${projectPath}|${packageName}`);
+
+  // Backward compatibility: use globalProjectId as main projectId
+  const projectId = globalProjectId;
 
   return {
     projectId,
     projectName: packageName,
+    globalProjectId,
+    localProjectId,
+    projectPath,
+    gitOriginUrl: gitOrigin || undefined,
+    repositoryName,
   };
 }

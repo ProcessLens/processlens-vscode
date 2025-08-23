@@ -13,6 +13,7 @@ import {
   filterHistoryEntries,
   HistoryEntry,
 } from "./shellHistory";
+import { DummyDataGenerator } from "./dummyDataGenerator";
 
 // Version constants for export/import validation
 const CURRENT_DATA_VERSION = "1.0.0";
@@ -366,7 +367,7 @@ function renderDashboardHtml(
                 <label>Project:</label>
                 <div class="multi-select-wrapper">
                     <div class="multi-select-display" id="projectFilterDisplay" title="Filter by workspace/project">All Projects</div>
-                    <div class="multi-select-dropdown" id="projectFilterDropdown" style="display: none;">
+                    <div class="multi-select-dropdown element-hidden" id="projectFilterDropdown">
                         <div class="multi-select-option" data-value="">
                             <input type="checkbox" id="project-all" checked>
                             <label for="project-all">All Projects</label>
@@ -378,7 +379,7 @@ function renderDashboardHtml(
                 <label>Command:</label>
                 <div class="multi-select-wrapper">
                     <div class="multi-select-display" id="commandFilterDisplay" title="Filter by specific command">All Commands</div>
-                    <div class="multi-select-dropdown" id="commandFilterDropdown" style="display: none;">
+                    <div class="multi-select-dropdown element-hidden" id="commandFilterDropdown">
                         <div class="multi-select-option" data-value="">
                             <input type="checkbox" id="command-all" checked>
                             <label for="command-all">All Commands</label>
@@ -390,7 +391,7 @@ function renderDashboardHtml(
                 <label>Success:</label>
                 <div class="multi-select-wrapper">
                     <div class="multi-select-display" id="successFilterDisplay" title="Filter by command success or failure">All</div>
-                    <div class="multi-select-dropdown" id="successFilterDropdown" style="display: none;">
+                    <div class="multi-select-dropdown element-hidden" id="successFilterDropdown">
                         <div class="multi-select-option" data-value="all">
                             <input type="checkbox" id="success-all" checked>
                             <label for="success-all">All</label>
@@ -407,19 +408,42 @@ function renderDashboardHtml(
                 </div>
             </div>
             <div class="filter-group">
-                <label>Time:</label>
-                <select id="windowFilter" title="Filter by time period">
-                    <option value="all">All Time</option>
-                    <option value="24h">Last 24h</option>
-                    <option value="7d">Last 7 days</option>
-                    <option value="30d">Last 30 days</option>
-                </select>
+                <label>Time Range:</label>
+                <div class="time-range-wrapper">
+                    <div class="time-range-display" id="timeRangeDisplay" title="Select time period for analysis">Last 7 days</div>
+                    <div class="time-range-dropdown element-hidden" id="timeRangeDropdown">
+                        <div class="time-range-section">
+                            <h4>Quick Ranges</h4>
+                            <div class="time-range-option" data-type="relative" data-value="1h">Last Hour</div>
+                            <div class="time-range-option" data-type="relative" data-value="24h">Last 24 Hours</div>
+                            <div class="time-range-option" data-type="relative" data-value="7d" data-selected="true">Last 7 Days</div>
+                            <div class="time-range-option" data-type="relative" data-value="30d">Last 30 Days</div>
+                            <div class="time-range-option" data-type="relative" data-value="90d">Last 3 Months</div>
+                            <div class="time-range-option" data-type="relative" data-value="1y">Last Year</div>
+                            <div class="time-range-option" data-type="relative" data-value="all">All Time</div>
+                        </div>
+                        <div class="time-range-section">
+                            <h4>Custom Range</h4>
+                            <div class="custom-range-inputs">
+                                <div class="date-input-group">
+                                    <label>From:</label>
+                                    <input type="date" id="customFromDate" class="custom-date-input">
+                                </div>
+                                <div class="date-input-group">
+                                    <label>To:</label>
+                                    <input type="date" id="customToDate" class="custom-date-input">
+                                </div>
+                                <button id="applyCustomRange" class="apply-custom-btn">Apply Range</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="filter-group">
                 <label>Device:</label>
                 <div class="multi-select-wrapper">
                     <div class="multi-select-display" id="deviceFilterDisplay" title="Filter by device/hardware configuration">All Devices</div>
-                    <div class="multi-select-dropdown" id="deviceFilterDropdown" style="display: none;">
+                    <div class="multi-select-dropdown element-hidden" id="deviceFilterDropdown">
                         <div class="multi-select-option" data-value="">
                             <input type="checkbox" id="device-all" checked>
                             <label for="device-all">All Devices</label>
@@ -460,7 +484,8 @@ function renderDashboardHtml(
                     <button id="importProfileBtn" class="import-btn" title="Import dashboard configuration from a profile">⚙️ Import Profile</button>
                 </div>
                 <button id="signinBtn" class="signin-btn" title="Coming soon! Sign in to sync data across devices">🔐 Sign In</button>
-                <button id="cancelTaskBtn" class="cancel-task-btn" title="Cancel the currently running command" style="display: none;">⏹️ Cancel Task</button>
+                <button id="coffeeBtn" class="coffee-btn" title="Support ProcessLens development - Buy me a coffee! ☕">☕ Buy me a coffee</button>
+                <button id="cancelTaskBtn" class="cancel-task-btn element-hidden" title="Cancel the currently running command">⏹️ Cancel Task</button>
             </div>
             <div class="danger-actions">
                 <button id="clearBtn" class="clear-btn" title="Permanently delete all ProcessLens data - this cannot be undone!">⚠️ Clear All Data</button>
@@ -482,19 +507,19 @@ function renderDashboardHtml(
                 <div class="stat-value" id="overallSuccess">-</div>
                 <div class="stat-label">Success Rate</div>
             </div>
-            <div class="stat-card" title="Number of different projects/workspaces (filtered)">
+            <div class="stat-card" title="Number of different projects/workspaces with recent activity (filtered)">
                 <div class="stat-value" id="activeProjects">-</div>
                 <div class="stat-label">Active Projects</div>
             </div>
-            <div class="stat-card" title="Number of different devices/machines (filtered)">
+            <div class="stat-card" title="Number of different devices/machines that have executed commands (filtered)">
                 <div class="stat-value" id="activeDevices">-</div>
-                <div class="stat-label">Active Devices</div>
+                <div class="stat-label">Devices Tracked</div>
             </div>
         </div>
 
     <div id="content">
         <div class="loading">Loading...</div>
-        <div class="empty-state" style="display: none;">
+        <div class="empty-state element-hidden">
             <div class="welcome-message">
                 <h2>👋 Welcome to ProcessLens!</h2>
                 <p>Start tracking your command execution times to identify performance trends and bottlenecks.</p>
@@ -509,13 +534,70 @@ function renderDashboardHtml(
                 </div>
             </div>
         </div>
-        <div class="cards" style="display: none;">
-            <!-- Recent Durations Chart - Full Width -->
-            <div class="card chart-card" style="grid-column: 1 / -1;">
-                <h2 title="Shows timing trends for your recent command executions">Recent Durations</h2>
-                <div class="chart-container">
-                    <canvas id="durationChart"></canvas>
-                    <div id="chart-legend" class="chart-legend" style="display: none;"></div>
+        <div class="cards element-hidden">
+            <!-- Chart Visualization - Full Width with Tabs -->
+            <div class="card chart-card full-width">
+                <div class="chart-tabs">
+                    <button class="chart-tab active" data-tab="timeline" title="Timeline view of recent command executions">📈 Recent Durations</button>
+                    <button class="chart-tab" data-tab="heatmap" title="GitHub-style heatmap showing command activity over time">🔥 Activity Heatmap</button>
+                    <button class="chart-tab" data-tab="performance" title="Performance comparison across commands">⚡ Performance Matrix</button>
+                </div>
+                
+                <!-- Timeline Chart (default) -->
+                <div id="timelineChart" class="chart-view active">
+                    <div class="chart-container">
+                        <canvas id="durationChart"></canvas>
+                        <div id="chart-legend" class="chart-legend element-hidden"></div>
+                    </div>
+                </div>
+                
+                <!-- Heatmap Chart -->
+                <div id="heatmapChart" class="chart-view element-hidden">
+                    <div class="heatmap-container">
+                        <div class="heatmap-header">
+                            <h3>🔥 Activity Heatmap</h3>
+                            <p>GitHub-style visualization of your command activity over the past year. <strong>Each square = 1 day</strong>. Darker colors = more commands executed.</p>
+                            <div class="heatmap-legend">
+                                <span>Less</span>
+                                <div class="heatmap-scale">
+                                    <div class="heatmap-cell level-0"></div>
+                                    <div class="heatmap-cell level-1"></div>
+                                    <div class="heatmap-cell level-2"></div>
+                                    <div class="heatmap-cell level-3"></div>
+                                    <div class="heatmap-cell level-4"></div>
+                                </div>
+                                <span>More</span>
+                            </div>
+                        </div>
+                        <div class="heatmap-wrapper">
+                            <div class="heatmap-y-labels">
+                                <div>Sun</div>
+                                <div>Mon</div>
+                                <div>Tue</div>
+                                <div>Wed</div>
+                                <div>Thu</div>
+                                <div>Fri</div>
+                                <div>Sat</div>
+                            </div>
+                            <div class="heatmap-main">
+                                <div id="heatmapXLabels" class="heatmap-x-labels"></div>
+                                <div id="heatmapGrid" class="heatmap-grid"></div>
+                                <div class="heatmap-bottom">
+                                    <div id="heatmapMonths" class="heatmap-month-labels"></div>
+                                    <div id="heatmapYear" class="heatmap-year-label"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="heatmapTooltip" class="heatmap-tooltip element-hidden"></div>
+                    </div>
+                </div>
+                
+                <!-- Performance Matrix Chart -->
+                <div id="performanceChart" class="chart-view element-hidden">
+                    <div class="performance-container">
+                        <h3>Performance Comparison Matrix</h3>
+                        <div id="performanceMatrix" class="performance-matrix"></div>
+                    </div>
                 </div>
             </div>
             
@@ -525,7 +607,7 @@ function renderDashboardHtml(
                     <h2 title="Statistics for all commands you've run, sorted by frequency">Command Summary</h2>
                     <div class="column-selector">
                         <button class="column-menu-btn" title="Configure visible columns">⋯</button>
-                        <div class="column-menu" style="display: none;">
+                        <div class="column-menu element-hidden">
                             <label title="Command name (always visible)"><input type="checkbox" data-column="command" checked disabled> Command</label>
                             <label title="Number of times this command has been executed"><input type="checkbox" data-column="runs" checked> Runs</label>
                             <label title="Average execution time across all runs"><input type="checkbox" data-column="avgMs" checked> Average</label>
@@ -536,6 +618,11 @@ function renderDashboardHtml(
                             <label title="Percentage of successful runs (exit code 0)"><input type="checkbox" data-column="successRate" checked> Success</label>
                             <label title="Performance trend comparison: recent period vs previous period (↗ slower, ↘ faster, → stable). Period configurable in filters."><input type="checkbox" data-column="trend"> Trend</label>
                             <label title="Mini chart showing recent execution time trends (requires 2+ runs of the same command)"><input type="checkbox" data-column="sparkline"> Sparkline</label>
+                            <label title="Total time consumed by this command (duration × frequency) - identifies biggest time sinks"><input type="checkbox" data-column="totalTime" checked> Total Time</label>
+                            <label title="Impact score (0-100) relative to the most time-consuming command - helps prioritize optimization efforts"><input type="checkbox" data-column="impact" checked> Impact</label>
+                            <label title="Average time per day this command consumes - useful for daily workflow analysis"><input type="checkbox" data-column="timePerDay"> Time/Day</label>
+                            <label title="Potential time savings if this command were optimized - based on smart analysis"><input type="checkbox" data-column="projectedSavings"> Savings</label>
+                            <label title="Optimization priority based on impact, trends, and variability analysis"><input type="checkbox" data-column="optimizationPotential"> Priority</label>
                         </div>
                     </div>
                 </div>
@@ -546,13 +633,18 @@ function renderDashboardHtml(
                                 <th data-sort="command" data-column="command" class="sortable" title="Click to sort by command name">Command</th>
                                 <th data-sort="runs" data-column="runs" class="sortable" title="Click to sort by number of times run">Runs</th>
                                 <th data-sort="avgMs" data-column="avgMs" class="sortable" title="Click to sort by average execution time">Average</th>
-                                <th data-sort="medianMs" data-column="medianMs" class="sortable" title="Click to sort by median execution time" style="display: none;">Median</th>
-                                <th data-sort="p95Ms" data-column="p95Ms" class="sortable" title="Click to sort by 95th percentile execution time" style="display: none;">P95</th>
-                                <th data-sort="minMs" data-column="minMs" class="sortable" title="Click to sort by minimum execution time" style="display: none;">Min</th>
-                                <th data-sort="maxMs" data-column="maxMs" class="sortable" title="Click to sort by maximum execution time" style="display: none;">Max</th>
+                                <th data-sort="medianMs" data-column="medianMs" class="sortable column-hidden" title="Click to sort by median execution time">Median</th>
+                                <th data-sort="p95Ms" data-column="p95Ms" class="sortable column-hidden" title="Click to sort by 95th percentile execution time">P95</th>
+                                <th data-sort="minMs" data-column="minMs" class="sortable column-hidden" title="Click to sort by minimum execution time">Min</th>
+                                <th data-sort="maxMs" data-column="maxMs" class="sortable column-hidden" title="Click to sort by maximum execution time">Max</th>
                                 <th data-sort="successRate" data-column="successRate" class="sortable" title="Click to sort by success rate">Success</th>
-                                <th data-column="trend" class="sortable" title="Performance trend for selected period" style="display: none;">Trend</th>
-                                <th data-column="sparkline" title="Recent duration trend visualization" style="display: none;">Sparkline</th>
+                                <th data-column="trend" class="sortable column-hidden" title="Performance trend for selected period">Trend</th>
+                                <th data-column="sparkline" class="column-hidden" title="Recent duration trend visualization">Sparkline</th>
+                                <th data-sort="totalTimeMs" data-column="totalTime" class="sortable column-visible" title="Click to sort by total time consumed">Total Time</th>
+                                <th data-sort="impactScore" data-column="impact" class="sortable column-visible" title="Click to sort by impact score">Impact</th>
+                                <th data-sort="timePerDay" data-column="timePerDay" class="sortable column-hidden" title="Click to sort by time per day">Time/Day</th>
+                                <th data-sort="projectedSavingsMs" data-column="projectedSavings" class="sortable column-hidden" title="Click to sort by projected savings">Savings</th>
+                                <th data-sort="optimizationPotential" data-column="optimizationPotential" class="sortable column-hidden" title="Click to sort by optimization priority">Priority</th>
                             </tr>
                         </thead>
                         <tbody id="commandTableBody">
@@ -797,6 +889,11 @@ export function activate(context: vscode.ExtensionContext) {
         : {
             projectId: "no-project",
             projectName: "No Project",
+            globalProjectId: "no-project",
+            localProjectId: "no-project",
+            projectPath: process.cwd(),
+            repositoryName: undefined,
+            gitOriginUrl: undefined,
           };
 
       const evt: EventRecord = {
@@ -808,6 +905,11 @@ export function activate(context: vscode.ExtensionContext) {
         cwd: folder?.uri.fsPath || process.cwd(),
         projectId: finalProjectInfo.projectId,
         projectName: finalProjectInfo.projectName,
+        // Enhanced project identification for global database
+        globalProjectId: finalProjectInfo.globalProjectId,
+        localProjectId: finalProjectInfo.localProjectId,
+        repositoryName: finalProjectInfo.repositoryName,
+        gitOriginUrl: finalProjectInfo.gitOriginUrl,
         deviceId,
         hardwareHash,
         device: hardwareInfo,
@@ -1171,6 +1273,11 @@ export function activate(context: vscode.ExtensionContext) {
                   cwd: folder.uri.fsPath,
                   projectId: projectInfo?.projectId || "",
                   projectName: projectInfo?.projectName || "",
+                  // Enhanced project identification for global database
+                  globalProjectId: projectInfo?.globalProjectId,
+                  localProjectId: projectInfo?.localProjectId,
+                  repositoryName: projectInfo?.repositoryName,
+                  gitOriginUrl: projectInfo?.gitOriginUrl,
                   deviceId,
                   hardwareHash,
                   device: hardwareInfo,
@@ -1265,12 +1372,106 @@ export function activate(context: vscode.ExtensionContext) {
               }
             }
             break;
+
+          case "OPEN_COFFEE_LINK":
+            vscode.env.openExternal(
+              vscode.Uri.parse("https://buymeacoffee.com/processlens")
+            );
+            break;
         }
       });
     }
   );
 
-  context.subscriptions.push(runCommand, openDashboard);
+  // Generate dummy data command (for testing)
+  const generateDummyData = vscode.commands.registerCommand(
+    "processlens.generateDummyData",
+    async () => {
+      const options = [
+        {
+          label: "Small Dataset",
+          description: "100 records over 7 days",
+          value: { records: 100, days: 7 },
+        },
+        {
+          label: "Medium Dataset",
+          description: "500 records over 30 days",
+          value: { records: 500, days: 30 },
+        },
+        {
+          label: "Large Dataset",
+          description: "2000 records over 90 days",
+          value: { records: 2000, days: 90 },
+        },
+        {
+          label: "Performance Test",
+          description: "5000 records over 180 days",
+          value: { records: 5000, days: 180 },
+        },
+      ];
+
+      const selected = await vscode.window.showQuickPick(options, {
+        placeHolder: "Select dummy data size for testing",
+      });
+
+      if (!selected) {
+        return;
+      }
+
+      const generator = new DummyDataGenerator();
+
+      try {
+        vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.Notification,
+            title: "Generating dummy data...",
+            cancellable: false,
+          },
+          async (progress) => {
+            progress.report({
+              increment: 0,
+              message: "Creating realistic test data...",
+            });
+
+            const dummyRecords = generator.generateDummyData(
+              selected.value.records,
+              selected.value.days
+            );
+
+            progress.report({ increment: 50, message: "Saving to storage..." });
+
+            // Save all records to storage
+            for (let i = 0; i < dummyRecords.length; i++) {
+              await eventStore.append(dummyRecords[i]);
+
+              // Update progress every 100 records
+              if (i % 100 === 0) {
+                progress.report({
+                  increment: (50 / dummyRecords.length) * 100,
+                  message: `Saved ${i + 1}/${dummyRecords.length} records...`,
+                });
+              }
+            }
+
+            progress.report({ increment: 100, message: "Complete!" });
+          }
+        );
+
+        vscode.window.showInformationMessage(
+          `✅ Generated ${selected.value.records} dummy records over ${selected.value.days} days. Open the dashboard to see the data!`
+        );
+
+        // Refresh any open dashboards
+        refreshAllDashboards();
+      } catch (error) {
+        vscode.window.showErrorMessage(
+          `Failed to generate dummy data: ${error}`
+        );
+      }
+    }
+  );
+
+  context.subscriptions.push(runCommand, openDashboard, generateDummyData);
 }
 
 export function deactivate() {

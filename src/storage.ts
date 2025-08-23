@@ -13,6 +13,12 @@ export interface EventRecord {
   projectId: string;
   projectName: string;
 
+  // Enhanced project identification (for global database)
+  globalProjectId?: string; // Git-based, machine-independent
+  localProjectId?: string; // Machine-specific
+  repositoryName?: string; // e.g., "microsoft/vscode"
+  gitOriginUrl?: string; // For team collaboration
+
   // Device identity
   deviceId: string;
   hardwareHash: string;
@@ -32,7 +38,9 @@ export interface Filters {
   projectId?: string | string[];
   command?: string | string[];
   success?: "all" | "success" | "fail" | ("all" | "success" | "fail")[];
-  window?: "all" | "24h" | "7d" | "30d";
+  window?: "all" | "1h" | "24h" | "7d" | "30d" | "90d" | "1y" | "custom";
+  customFrom?: string; // ISO date string for custom range start
+  customTo?: string; // ISO date string for custom range end
   deviceInstance?:
     | { deviceId: string; hardwareHash: string }
     | { deviceId: string; hardwareHash: string }[];
@@ -51,6 +59,16 @@ export interface CommandSummary {
   failedRuns: number;
   recentTrend: "up" | "down" | "stable";
   recentDurations: number[]; // Last 20 runs for sparklines
+
+  // Impact Analysis
+  totalTimeMs: number; // Total time consumed (duration × frequency)
+  impactScore: number; // Normalized impact score (0-100)
+  timePerDay: number; // Average time per day
+
+  // Performance Predictions
+  projectedSavingsMs?: number; // Potential time savings if optimized
+  optimizationPotential?: "high" | "medium" | "low"; // Optimization priority
+  trendVelocity?: number; // Rate of performance change (ms/day)
 }
 
 export interface EventStore {
@@ -161,6 +179,18 @@ export class JsonlEventStore implements EventStore {
         // Get last 20 runs for sparklines
         const recentDurations = durations.slice(-20);
 
+        // Calculate impact analysis
+        const totalTimeMs = durations.reduce((sum, d) => sum + d, 0);
+
+        // Calculate time per day (based on data span)
+        const oldestEvent = sortedEvents[0];
+        const newestEvent = sortedEvents[sortedEvents.length - 1];
+        const dataSpanDays = Math.max(
+          1,
+          (newestEvent.tsStart - oldestEvent.tsStart) / (24 * 60 * 60 * 1000)
+        );
+        const timePerDay = totalTimeMs / dataSpanDays;
+
         return {
           command,
           runs: events.length,
@@ -173,9 +203,144 @@ export class JsonlEventStore implements EventStore {
           failedRuns,
           recentTrend,
           recentDurations,
+
+          // Impact Analysis
+          totalTimeMs,
+          impactScore: 0, // Will be calculated after all commands are processed
+          timePerDay,
+        };
+      })
+      .map((summary, index, array) => {
+        // Calculate impact score (0-100) based on total time relative to highest
+        const maxTotalTime = Math.max(...array.map((s) => s.totalTimeMs));
+        const impactScore =
+          maxTotalTime > 0
+            ? Math.round((summary.totalTimeMs / maxTotalTime) * 100)
+            : 0;
+
+        // Calculate performance predictions
+        const predictions = this.calculatePerformancePredictions(
+          summary,
+          events
+        );
+
+        return {
+          ...summary,
+          impactScore,
+          ...predictions,
         };
       })
       .sort((a, b) => b.runs - a.runs);
+  }
+
+  private calculatePerformancePredictions(
+    summary: any,
+    commandEvents: EventRecord[]
+  ) {
+    // Sort events by timestamp for trend analysis
+    const sortedEvents = commandEvents.sort((a, b) => a.tsStart - b.tsStart);
+
+    if (sortedEvents.length < 3) {
+      // Need at least 3 data points for meaningful predictions
+      return {
+        projectedSavingsMs: 0,
+        optimizationPotential: "low" as const,
+        trendVelocity: 0,
+      };
+    }
+
+    // Calculate trend velocity (performance change over time)
+    const firstHalf = sortedEvents.slice(
+      0,
+      Math.floor(sortedEvents.length / 2)
+    );
+    const secondHalf = sortedEvents.slice(Math.floor(sortedEvents.length / 2));
+
+    const firstHalfAvg =
+      firstHalf.reduce((sum, e) => sum + e.durationMs, 0) / firstHalf.length;
+    const secondHalfAvg =
+      secondHalf.reduce((sum, e) => sum + e.durationMs, 0) / secondHalf.length;
+
+    const timeSpanDays = Math.max(
+      1,
+      (secondHalf[secondHalf.length - 1].tsStart - firstHalf[0].tsStart) /
+        (24 * 60 * 60 * 1000)
+    );
+    const trendVelocity = (secondHalfAvg - firstHalfAvg) / timeSpanDays; // ms change per day
+
+    // Calculate optimization potential based on multiple factors
+    let optimizationScore = 0;
+
+    // Factor 1: High impact commands have more optimization potential
+    optimizationScore += summary.impactScore * 0.4;
+
+    // Factor 2: Commands getting slower have high optimization potential
+    if (trendVelocity > 100) {
+      // Getting slower by >100ms/day
+      optimizationScore += 30;
+    } else if (trendVelocity > 10) {
+      // Getting slower by >10ms/day
+      optimizationScore += 15;
+    }
+
+    // Factor 3: High variability suggests optimization opportunities
+    const durations = sortedEvents.map((e) => e.durationMs);
+    const variance = this.calculateVariance(durations);
+    const coefficientOfVariation = Math.sqrt(variance) / summary.avgMs;
+    if (coefficientOfVariation > 0.5) {
+      // High variability
+      optimizationScore += 20;
+    } else if (coefficientOfVariation > 0.3) {
+      optimizationScore += 10;
+    }
+
+    // Factor 4: Frequently run commands have more optimization potential
+    if (summary.runs > 50) {
+      optimizationScore += 15;
+    } else if (summary.runs > 20) {
+      optimizationScore += 10;
+    } else if (summary.runs > 10) {
+      optimizationScore += 5;
+    }
+
+    // Determine optimization potential category
+    let optimizationPotential: "high" | "medium" | "low";
+    if (optimizationScore >= 70) {
+      optimizationPotential = "high";
+    } else if (optimizationScore >= 40) {
+      optimizationPotential = "medium";
+    } else {
+      optimizationPotential = "low";
+    }
+
+    // Calculate projected savings (conservative estimate)
+    let projectedSavingsMs = 0;
+
+    if (optimizationPotential === "high") {
+      // Assume 30% improvement for high-potential commands
+      const potentialImprovement = summary.avgMs * 0.3;
+      projectedSavingsMs = potentialImprovement * summary.runs;
+    } else if (optimizationPotential === "medium") {
+      // Assume 15% improvement for medium-potential commands
+      const potentialImprovement = summary.avgMs * 0.15;
+      projectedSavingsMs = potentialImprovement * summary.runs;
+    } else {
+      // Assume 5% improvement for low-potential commands
+      const potentialImprovement = summary.avgMs * 0.05;
+      projectedSavingsMs = potentialImprovement * summary.runs;
+    }
+
+    return {
+      projectedSavingsMs: Math.round(projectedSavingsMs),
+      optimizationPotential,
+      trendVelocity: Math.round(trendVelocity * 100) / 100, // Round to 2 decimal places
+    };
+  }
+
+  private calculateVariance(numbers: number[]): number {
+    const mean = numbers.reduce((sum, n) => sum + n, 0) / numbers.length;
+    const squaredDifferences = numbers.map((n) => Math.pow(n - mean, 2));
+    return squaredDifferences.reduce((sum, sq) => sum + sq, 0) / numbers.length;
   }
 
   private applyFilters(events: EventRecord[], filters: Filters): EventRecord[] {
@@ -223,22 +388,52 @@ export class JsonlEventStore implements EventStore {
     }
 
     if (filters.window && filters.window !== "all") {
-      const now = Date.now();
-      let cutoff: number;
-      switch (filters.window) {
-        case "24h":
-          cutoff = now - 24 * 60 * 60 * 1000;
-          break;
-        case "7d":
-          cutoff = now - 7 * 24 * 60 * 60 * 1000;
-          break;
-        case "30d":
-          cutoff = now - 30 * 24 * 60 * 60 * 1000;
-          break;
-        default:
-          cutoff = 0;
+      if (
+        filters.window === "custom" &&
+        filters.customFrom &&
+        filters.customTo
+      ) {
+        // Handle custom date range
+        const fromDate = new Date(filters.customFrom);
+        const toDate = new Date(filters.customTo);
+        // Set time to start/end of day for better UX
+        fromDate.setHours(0, 0, 0, 0);
+        toDate.setHours(23, 59, 59, 999);
+
+        const fromTimestamp = fromDate.getTime();
+        const toTimestamp = toDate.getTime();
+
+        filtered = filtered.filter(
+          (e) => e.tsEnd >= fromTimestamp && e.tsEnd <= toTimestamp
+        );
+      } else {
+        // Handle predefined time windows
+        const now = Date.now();
+        let cutoff: number;
+        switch (filters.window) {
+          case "1h":
+            cutoff = now - 60 * 60 * 1000;
+            break;
+          case "24h":
+            cutoff = now - 24 * 60 * 60 * 1000;
+            break;
+          case "7d":
+            cutoff = now - 7 * 24 * 60 * 60 * 1000;
+            break;
+          case "30d":
+            cutoff = now - 30 * 24 * 60 * 60 * 1000;
+            break;
+          case "90d":
+            cutoff = now - 90 * 24 * 60 * 60 * 1000;
+            break;
+          case "1y":
+            cutoff = now - 365 * 24 * 60 * 60 * 1000;
+            break;
+          default:
+            cutoff = 0;
+        }
+        filtered = filtered.filter((e) => e.tsEnd >= cutoff);
       }
-      filtered = filtered.filter((e) => e.tsEnd >= cutoff);
     }
 
     if (filters.deviceInstance) {

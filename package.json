@@ -24,6 +24,10 @@
       {
         "command": "processlens.openDashboard",
         "title": "ProcessLens: Open Dashboard"
+      },
+      {
+        "command": "processlens.generateDummyData",
+        "title": "ProcessLens: Generate Dummy Data (Testing)"
       }
     ],
     "taskDefinitions": [

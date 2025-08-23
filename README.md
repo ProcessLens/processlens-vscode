@@ -20,6 +20,48 @@ ProcessLens helps you identify performance bottlenecks, track trends over time, 
 - **Success Rate Monitoring**: Track command reliability over time
 - **Hardware Change Detection**: Automatic annotations when your hardware configuration changes
 
+### 🔥 **Impact Analysis - NEW!**
+
+**Identify Your Biggest Time Sinks with Smart Calculations**
+
+- **Total Time Column**: Shows cumulative time consumed (duration × frequency)
+- **Impact Score**: Visual progress bar (0-100) showing relative impact compared to your most time-consuming command
+- **Time/Day**: Average daily time consumption for workflow analysis
+- **Beautiful Visualizations**: Color-coded impact bars with gradients (green → yellow → red)
+
+**How It Works:**
+
+- **Smart Calculation**: Multiplies average duration by run frequency to find commands that consume the most total time
+- **Relative Scoring**: Impact scores are calculated relative to your highest time-consuming command (100 = highest impact)
+- **Optimization Priority**: Focus on high-impact commands first for maximum time savings
+- **Daily Insights**: Understand how much time each command consumes in your daily workflow
+
+**Example**: A command that runs 50 times at 2 seconds each (100s total) has higher impact than a command that runs 2 times at 30 seconds each (60s total).
+
+### 🔮 **Performance Predictions - NEW!**
+
+**Calculate Time Savings from Command Optimizations**
+
+- **Projected Savings**: Estimates potential time savings if commands were optimized
+- **Optimization Priority**: Smart scoring (HIGH/MEDIUM/LOW) based on multiple factors
+- **ROI Analysis**: Helps prioritize which commands to optimize first
+- **Trend Velocity**: Tracks if commands are getting faster or slower over time
+
+**Smart Scoring Factors:**
+
+- **Impact Score**: High-impact commands get higher optimization priority
+- **Performance Trends**: Commands getting slower have higher priority
+- **Variability**: Commands with inconsistent performance suggest optimization opportunities
+- **Frequency**: Frequently-run commands have more optimization potential
+
+**Conservative Estimates:**
+
+- **HIGH Priority**: Assumes 30% improvement potential
+- **MEDIUM Priority**: Assumes 15% improvement potential
+- **LOW Priority**: Assumes 5% improvement potential
+
+**Example**: A HIGH priority command running 100 times at 10s average could save ~5 minutes total if optimized by 30%.
+
 ### 🎛️ **Interactive Features**
 
 - **Customizable Columns**: Show/hide statistics columns via 3-dot menu (⋯)
