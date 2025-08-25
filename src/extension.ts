@@ -555,7 +555,16 @@ function renderDashboardHtml(
                 <div id="heatmapChart" class="chart-view element-hidden">
                     <div class="heatmap-container">
                         <div class="heatmap-header">
-                            <h3>🔥 Activity Heatmap</h3>
+                            <div class="heatmap-title-row">
+                                <h3>🔥 Activity Heatmap</h3>
+                                <div id="heatmapYearNav" class="heatmap-year-nav element-hidden">
+                                    <button id="heatmapPrevYear" class="year-nav-btn">‹</button>
+                                    <select id="heatmapYearSelect" class="year-select">
+                                        <option value="2024">2024</option>
+                                    </select>
+                                    <button id="heatmapNextYear" class="year-nav-btn">›</button>
+                                </div>
+                            </div>
                             <p>GitHub-style visualization of your command activity over the past year. <strong>Each square = 1 day</strong>. Darker colors = more commands executed.</p>
                             <div class="heatmap-legend">
                                 <span>Less</span>
@@ -571,13 +580,13 @@ function renderDashboardHtml(
                         </div>
                         <div class="heatmap-wrapper">
                             <div class="heatmap-y-labels">
-                                <div>Sun</div>
                                 <div>Mon</div>
                                 <div>Tue</div>
                                 <div>Wed</div>
                                 <div>Thu</div>
                                 <div>Fri</div>
                                 <div>Sat</div>
+                                <div>Sun</div>
                             </div>
                             <div class="heatmap-main">
                                 <div id="heatmapXLabels" class="heatmap-x-labels"></div>

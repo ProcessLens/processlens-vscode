@@ -3,4 +3,8 @@ node_modules/
 .vscode-test/
 *.vsix
 
+# Compiled TypeScript dashboard (generated from dashboard.ts)
+media/dashboard.js
+media/dashboard.js.map
+
 

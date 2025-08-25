@@ -14,7 +14,7 @@
   "activationEvents": [
     "*"
   ],
-  "main": "./out/extension.js",
+  "main": "./out/src/extension.js",
   "contributes": {
     "commands": [
       {
@@ -83,7 +83,9 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "compile": "npm run compile:dashboard && npm run compile:extension",
+    "compile:dashboard": "tsc -p tsconfig.dashboard.json",
+    "compile:extension": "tsc -p ./",
     "watch": "tsc -w -p ./",
     "package": "vsce package"
   },
@@ -91,11 +93,12 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "@types/vscode": "^1.85.0",
+    "@types/chart.js": "^2.9.41",
     "@types/node": "^20.11.0",
     "@types/uuid": "^9.0.7",
-    "typescript": "^5.4.0",
-    "@vscode/vsce": "^3.6.0"
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.6.0",
+    "typescript": "^5.4.0"
   },
   "license": "MIT",
   "repository": {
