@@ -687,8 +687,12 @@ function getNonce() {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  // Initialize storage
-  eventStore = new JsonlEventStore(context);
+  console.log('ProcessLens extension is being activated...');
+  
+  try {
+    // Initialize storage
+    eventStore = new JsonlEventStore(context);
+    console.log('EventStore initialized successfully');
 
   // Create status bar item
   const statusBarEnabled = vscode.workspace
@@ -719,6 +723,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(taskEndListener);
 
+  console.log('Registering commands...');
   const runCommand = vscode.commands.registerCommand(
     "processlens.runCommand",
     async () => {
@@ -1481,6 +1486,12 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(runCommand, openDashboard, generateDummyData);
+  
+  console.log('ProcessLens extension activated successfully!');
+  } catch (error) {
+    console.error('Failed to activate ProcessLens extension:', error);
+    vscode.window.showErrorMessage(`ProcessLens failed to activate: ${error}`);
+  }
 }
 
 export function deactivate() {

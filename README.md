@@ -87,6 +87,45 @@ ProcessLens helps you identify performance bottlenecks, track trends over time, 
 4. Type "ProcessLens: Run Command" and select it
 5. Choose a command to run and start tracking!
 
+### 🔤 Font Requirements (Optional)
+
+For the best visual experience with OS icons on the dashboard, install a **Nerd Font**:
+
+**Recommended Fonts:**
+- **MesloLGS NF** (most popular, great compatibility)
+- **FiraCode Nerd Font** 
+- **Hack Nerd Font**
+- **JetBrains Mono Nerd Font**
+
+**Installation:**
+
+**macOS:**
+```bash
+# Install with Homebrew
+brew tap homebrew/cask-fonts
+brew install font-meslo-lg-nerd-font
+
+# Or install multiple fonts
+brew install font-fira-code-nerd-font font-hack-nerd-font
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+# Download and install MesloLGS NF
+mkdir -p ~/.local/share/fonts
+curl -fLo "MesloLGS NF Regular.ttf" https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/Meslo/S/Regular/MesloLGSNerdFont-Regular.ttf
+curl -fLo "MesloLGS NF Bold.ttf" https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/Meslo/S/Bold/MesloLGSNerdFont-Bold.ttf
+mv *.ttf ~/.local/share/fonts/
+fc-cache -fv
+```
+
+**Windows:**
+1. Download fonts from [Nerd Fonts releases](https://github.com/ryanoasis/nerd-fonts/releases)
+2. Extract and install `.ttf` files by right-clicking → "Install"
+3. Restart VS Code
+
+**Note:** ProcessLens works perfectly without Nerd Fonts! It automatically falls back to emoji icons (🍎 for macOS, 🐧 for Linux, etc.) that display on all systems.
+
 ### Commands
 
 - **ProcessLens: Run Command** — Execute and time any command (package.json scripts, shell history, or custom)

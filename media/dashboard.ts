@@ -1065,13 +1065,14 @@ interface Document extends DocumentExtensions {}
       // Calculate stats based on currently filtered data
       const totalRuns = runs.length;
       const commandCount = perCommand.length;
-      const successfulRuns = runs.filter((r) => r.success).length;
+      // Fix: Use exitCode to determine success since success field may not be populated
+      const successfulRuns = runs.filter((r) => r.success === true || (r as any).exitCode === 0).length;
       const overallSuccess =
         totalRuns > 0 ? Math.round((successfulRuns / totalRuns) * 100) : 0;
 
       // Calculate unique projects and devices from current filtered runs
       const uniqueProjects = new Set(runs.map((r) => r.projectId)).size;
-      const uniqueDevices = new Set(runs.map((r) => r.deviceId)).size;
+      const uniqueDevices = new Set(runs.map((r) => `${r.deviceId}|${r.hardwareHash}`)).size;
 
       const totalRunsEl = document.getElementById("totalRuns");
       if (totalRunsEl) totalRunsEl.textContent = totalRuns.toLocaleString();
@@ -2367,6 +2368,26 @@ interface Document extends DocumentExtensions {}
       return `hsl(${hue}, 45%, 60%)`;
     }
 
+    function supportsNerdFonts(): boolean {
+      // Test if Nerd Fonts are available by checking a known character
+      const testCanvas = document.createElement('canvas');
+      const ctx = testCanvas.getContext('2d');
+      if (!ctx) return false;
+      
+      // Set font to one of our Nerd Font options
+      ctx.font = '16px "MesloLGS NF", "FiraCode Nerd Font", monospace';
+      
+      // Test with a common Nerd Font icon (Apple logo)
+      const nerdFontWidth = ctx.measureText('\uF179').width;
+      
+      // Set font to fallback monospace without Nerd Font
+      ctx.font = '16px monospace';
+      const fallbackWidth = ctx.measureText('\uF179').width;
+      
+      // If widths differ significantly, Nerd Font is likely rendering
+      return Math.abs(nerdFontWidth - fallbackWidth) > 1;
+    }
+
     function getDeviceInfo(run: EventRecord) {
       const deviceId = run.deviceId;
       const device = (run as any).device; // Device info may not be in EventRecord interface
@@ -2496,8 +2517,11 @@ interface Document extends DocumentExtensions {}
         tooltip += ` • ${deviceId.slice(0, 8)}...`;
       }
 
+      // Smart icon selection: prefer emoji fallbacks for better compatibility
+      const finalIcon = nerdFontIcon && supportsNerdFonts() ? nerdFontIcon : icon;
+      
       return {
-        icon: nerdFontIcon || icon, // Try Nerd Font first, fallback to emoji
+        icon: finalIcon,
         color,
         tooltip,
         osName,

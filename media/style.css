@@ -9,9 +9,17 @@ body {
 /* Ensure Nerd Font icons display properly */
 .device-icon,
 .device-icon-small {
-  font-family: "FiraCode Nerd Font", "Hack Nerd Font", "JetBrainsMono Nerd Font",
-    "SauceCodePro Nerd Font", "JetBrains Mono", "SF Mono", "Monaco",
-    "Inconsolata", "Fira Code", "Source Code Pro", monospace;
+  font-family: "MesloLGS NF", "MesloLGM NF", "MesloLGS Nerd Font", "MesloLGM Nerd Font",
+    "Meslo LG S for Powerline", "Meslo LG M for Powerline", "Powerline Symbols",
+    "FiraCode Nerd Font", "Fira Code Nerd Font", "Hack Nerd Font", 
+    "JetBrainsMono Nerd Font", "JetBrains Mono Nerd Font", "SauceCodePro Nerd Font",
+    "Source Code Pro for Powerline", "Ubuntu Mono derivative Powerline",
+    "DejaVu Sans Mono for Powerline", "Roboto Mono for Powerline", 
+    "Droid Sans Mono for Powerline", "Inconsolata for Powerline",
+    "Cascadia Code PL", "Cascadia Mono PL", "CaskaydiaCove Nerd Font",
+    "CodeNewRoman Nerd Font", "DaddyTimeMono Nerd Font", "FantasqueSansMono Nerd Font",
+    "JetBrains Mono", "SF Mono", "Monaco", "Menlo", "Consolas", 
+    "Inconsolata", "Fira Code", "Source Code Pro", "Ubuntu Mono", monospace;
   font-size: 16px; /* Ensure consistent size */
   line-height: 1;
   font-weight: normal;
@@ -1333,6 +1341,12 @@ td[data-column="optimizationPotential"] {
   position: relative;
   transition: none;
   flex-shrink: 0;
+  /* Improve icon visibility with text shadows */
+  color: white;
+  text-shadow: 
+    0 0 2px rgba(0, 0, 0, 0.8),
+    0 0 4px rgba(0, 0, 0, 0.6),
+    1px 1px 1px rgba(0, 0, 0, 0.9);
 }
 
 .device-icon-small {
@@ -1356,6 +1370,12 @@ td[data-column="optimizationPotential"] {
   position: relative;
   transition: none;
   flex-shrink: 0;
+  /* Improve icon visibility with text shadows */
+  color: white;
+  text-shadow: 
+    0 0 2px rgba(0, 0, 0, 0.8),
+    0 0 3px rgba(0, 0, 0, 0.6),
+    1px 1px 1px rgba(0, 0, 0, 0.9);
 }
 
 .device-more {
