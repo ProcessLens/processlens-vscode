@@ -63,7 +63,7 @@ export interface CommandSummary {
   // Impact Analysis
   totalTimeMs: number; // Total time consumed (duration × frequency)
   impactScore: number; // Normalized impact score (0-100)
-  timePerDay: number; // Average time per day
+  timePerDayMs: number; // Average time per day in milliseconds
 
   // Performance Predictions
   projectedSavingsMs?: number; // Potential time savings if optimized
@@ -207,7 +207,7 @@ export class JsonlEventStore implements EventStore {
           // Impact Analysis
           totalTimeMs,
           impactScore: 0, // Will be calculated after all commands are processed
-          timePerDay,
+          timePerDayMs: timePerDay,
         };
       })
       .map((summary, index, array) => {
