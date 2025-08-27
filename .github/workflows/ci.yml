@@ -40,11 +40,7 @@ jobs:
         run: npx vsce package --allow-star-activation
 
       - name: Upload package artifact
-<<<<<<< Updated upstream
-        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '18'
-=======
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '20'
->>>>>>> Stashed changes
         uses: actions/upload-artifact@v4
         with:
           name: extension-package
