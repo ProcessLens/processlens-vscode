@@ -9,7 +9,23 @@
   },
   "icon": "images/icon-128.png",
   "categories": [
-    "Other"
+    "Other",
+    "Testing",
+    "Debuggers"
+  ],
+  "keywords": [
+    "performance",
+    "analytics",
+    "build",
+    "test",
+    "timing",
+    "dashboard",
+    "metrics",
+    "monitoring",
+    "development",
+    "productivity",
+    "local-first",
+    "command-tracking"
   ],
   "activationEvents": [
     "*"
@@ -87,7 +103,11 @@
     "compile:dashboard": "tsc -p tsconfig.dashboard.json",
     "compile:extension": "tsc -p ./",
     "watch": "tsc -w -p ./",
-    "package": "vsce package"
+    "package": "vsce package --allow-star-activation",
+    "lint": "echo 'Linting not configured yet'",
+    "test": "echo 'Tests not configured yet'",
+    "clean": "rm -rf out/ media/dashboard.js media/dashboard.js.map *.vsix",
+    "prepackage": "npm run clean && npm run compile"
   },
   "dependencies": {
     "uuid": "^9.0.1"

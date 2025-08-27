@@ -1,0 +1,125 @@
+name: Release Extension
+
+on:
+  push:
+    branches: [release]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., 0.1.2)"
+        required: false
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests (if any)
+        run: npm test --if-present
+
+      - name: Compile TypeScript
+        run: npm run compile
+
+      - name: Lint code
+        run: npm run lint --if-present
+
+      - name: Update version (if specified)
+        if: github.event.inputs.version
+        run: npm version ${{ github.event.inputs.version }} --no-git-tag-version
+
+      - name: Package extension
+        run: npx vsce package --allow-star-activation
+
+      - name: Get package info
+        id: package
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          NAME=$(node -p "require('./package.json').name")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "name=$NAME" >> $GITHUB_OUTPUT
+          echo "filename=$NAME-$VERSION.vsix" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.package.outputs.version }}
+          release_name: ProcessLens v${{ steps.package.outputs.version }}
+          body: |
+            ## ProcessLens v${{ steps.package.outputs.version }}
+
+            ### 📦 Installation
+            Download the `.vsix` file below and install it in VS Code:
+            1. Open VS Code
+            2. Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac)
+            3. Type "Extensions: Install from VSIX"
+            4. Select the downloaded `.vsix` file
+
+            ### 📋 Changes
+            See [CHANGELOG.md](https://github.com/ProcessLens/processlens-vscode/blob/main/CHANGELOG.md) for detailed changes.
+
+            ### 🐛 Issues
+            Report bugs or request features at: https://github.com/ProcessLens/processlens-vscode/issues
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./${{ steps.package.outputs.filename }}
+          asset_name: ${{ steps.package.outputs.filename }}
+          asset_content_type: application/zip
+
+      - name: Publish to VS Code Marketplace
+        if: success()
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          if [ -n "$VSCE_PAT" ]; then
+            npx vsce publish --packagePath ${{ steps.package.outputs.filename }}
+            echo "✅ Published to VS Code Marketplace"
+          else
+            echo "⚠️ VSCE_PAT secret not found. Skipping marketplace publish."
+            echo "To enable automatic publishing, add your Personal Access Token as VSCE_PAT secret."
+          fi
+
+      - name: Publish to Open VSX Registry
+        if: success()
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: |
+          if [ -n "$OVSX_PAT" ]; then
+            npx ovsx publish ${{ steps.package.outputs.filename }} -p $OVSX_PAT
+            echo "✅ Published to Open VSX Registry"
+          else
+            echo "⚠️ OVSX_PAT secret not found. Skipping Open VSX publish."
+          fi
+
+      - name: Commit version bump (if updated)
+        if: github.event.inputs.version
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add package.json package-lock.json
+          git commit -m "chore: bump version to ${{ steps.package.outputs.version }}" || exit 0
+          git push

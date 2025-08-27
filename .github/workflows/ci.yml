@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [18, 20]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests (if any)
+        run: npm test --if-present
+
+      - name: Compile TypeScript
+        run: npm run compile
+
+      - name: Lint code
+        run: npm run lint --if-present
+
+      - name: Package extension
+        run: npx vsce package --allow-star-activation
+
+      - name: Upload package artifact
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '18'
+        uses: actions/upload-artifact@v3
+        with:
+          name: extension-package
+          path: "*.vsix"
+          retention-days: 7

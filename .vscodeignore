@@ -1,9 +1,36 @@
+# Git and development files
 .git/**
-node_modules/**
-!node_modules/uuid/**
-src/**
-tsconfig.json
 .vscode/**
 .devcontainer/**
 
+# Source files (compiled versions are in out/)
+src/**
+media/dashboard.ts
+tsconfig.json
+tsconfig.dashboard.json
 
+# Node modules (except required runtime dependencies)
+node_modules/**
+!node_modules/uuid/**
+
+# Development and build files
+*.log
+*.map
+.DS_Store
+Thumbs.db
+
+# Generated files that shouldn't be packaged
+media/dashboard.js.map
+out/media/dashboard.js.map
+
+# Package files
+*.vsix
+
+# GitHub files (not needed in extension package)
+.github/**
+CONTRIBUTING.md
+
+# Development files
+*.tsbuildinfo
+coverage/**
+.nyc_output/**

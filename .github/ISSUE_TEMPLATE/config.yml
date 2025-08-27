@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discussions
+    url: https://github.com/ProcessLens/processlens-vscode/discussions
+    about: Ask questions, share ideas, or discuss ProcessLens with the community
+  - name: 📖 Documentation
+    url: https://github.com/ProcessLens/processlens-vscode#readme
+    about: Read the documentation and user guide
+  - name: 🌐 Website
+    url: https://processlens.dev
+    about: Visit the ProcessLens website
