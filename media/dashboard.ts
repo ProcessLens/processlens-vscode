@@ -1066,13 +1066,17 @@ interface Document extends DocumentExtensions {}
       const totalRuns = runs.length;
       const commandCount = perCommand.length;
       // Fix: Use exitCode to determine success since success field may not be populated
-      const successfulRuns = runs.filter((r) => r.success === true || (r as any).exitCode === 0).length;
+      const successfulRuns = runs.filter(
+        (r) => r.success === true || (r as any).exitCode === 0
+      ).length;
       const overallSuccess =
         totalRuns > 0 ? Math.round((successfulRuns / totalRuns) * 100) : 0;
 
       // Calculate unique projects and devices from current filtered runs
       const uniqueProjects = new Set(runs.map((r) => r.projectId)).size;
-      const uniqueDevices = new Set(runs.map((r) => `${r.deviceId}|${r.hardwareHash}`)).size;
+      const uniqueDevices = new Set(
+        runs.map((r) => `${r.deviceId}|${r.hardwareHash}`)
+      ).size;
 
       const totalRunsEl = document.getElementById("totalRuns");
       if (totalRunsEl) totalRunsEl.textContent = totalRuns.toLocaleString();
@@ -1125,9 +1129,37 @@ interface Document extends DocumentExtensions {}
         }
       });
 
-      // Prevent dropdown close when clicking inside
+      // Consolidated click handler for better reliability
       dropdown.addEventListener("click", function (e) {
         e.stopPropagation();
+
+        const target = e.target as HTMLElement;
+        let checkbox: HTMLInputElement | null = null;
+
+        // Handle clicks on checkbox, label, or option container
+        if (
+          target.tagName === "INPUT" &&
+          (target as HTMLInputElement).type === "checkbox"
+        ) {
+          // Direct checkbox click - let it handle naturally
+          return;
+        } else if (target.tagName === "LABEL") {
+          // For label clicks, let the browser handle the natural label-checkbox association
+          // Don't manually toggle to avoid double-toggle
+          return;
+        } else if (target.classList.contains("multi-select-option")) {
+          // Only handle container clicks (not label or checkbox)
+          checkbox = target.querySelector(
+            'input[type="checkbox"]'
+          ) as HTMLInputElement;
+
+          if (checkbox) {
+            checkbox.checked = !checkbox.checked;
+            // Trigger change event manually to ensure it's processed
+            const changeEvent = new Event("change", { bubbles: true });
+            checkbox.dispatchEvent(changeEvent);
+          }
+        }
       });
 
       // Close all dropdowns when clicking outside
@@ -1260,6 +1292,8 @@ interface Document extends DocumentExtensions {}
       const allOptionDiv = document.createElement("div");
       allOptionDiv.className = "multi-select-option";
       allOptionDiv.setAttribute("data-value", "");
+      // Ensure the container is clickable but doesn't interfere with label/checkbox
+      allOptionDiv.style.cursor = "pointer";
 
       const allCheckbox = document.createElement("input");
       allCheckbox.type = "checkbox";
@@ -1273,6 +1307,10 @@ interface Document extends DocumentExtensions {}
       allLabel.setAttribute("for", allCheckbox.id);
       allLabel.textContent = defaultText;
 
+      // Ensure label is properly clickable
+      allLabel.style.cursor = "pointer";
+      allLabel.style.userSelect = "none";
+
       allOptionDiv.appendChild(allCheckbox);
       allOptionDiv.appendChild(allLabel);
       dropdown.appendChild(allOptionDiv);
@@ -1282,6 +1320,8 @@ interface Document extends DocumentExtensions {}
         const optionDiv = document.createElement("div");
         optionDiv.className = "multi-select-option";
         optionDiv.setAttribute("data-value", option.value);
+        // Ensure the container is clickable but doesn't interfere with label/checkbox
+        optionDiv.style.cursor = "pointer";
 
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
@@ -1294,6 +1334,10 @@ interface Document extends DocumentExtensions {}
         const label = document.createElement("label");
         label.setAttribute("for", checkbox.id);
         label.textContent = option.label;
+
+        // Ensure label is properly clickable
+        label.style.cursor = "pointer";
+        label.style.userSelect = "none";
 
         optionDiv.appendChild(checkbox);
         optionDiv.appendChild(label);
@@ -1469,8 +1513,6 @@ interface Document extends DocumentExtensions {}
         deviceId: run.deviceId,
         hardwareHash: run.hardwareHash,
       }));
-
-
 
       // Detect hardware changes for annotations
       const hardwareChanges: any[] = [];
@@ -2370,20 +2412,20 @@ interface Document extends DocumentExtensions {}
 
     function supportsNerdFonts(): boolean {
       // Test if Nerd Fonts are available by checking a known character
-      const testCanvas = document.createElement('canvas');
-      const ctx = testCanvas.getContext('2d');
+      const testCanvas = document.createElement("canvas");
+      const ctx = testCanvas.getContext("2d");
       if (!ctx) return false;
-      
+
       // Set font to one of our Nerd Font options
       ctx.font = '16px "MesloLGS NF", "FiraCode Nerd Font", monospace';
-      
+
       // Test with a common Nerd Font icon (Apple logo)
-      const nerdFontWidth = ctx.measureText('\uF179').width;
-      
+      const nerdFontWidth = ctx.measureText("\uF179").width;
+
       // Set font to fallback monospace without Nerd Font
-      ctx.font = '16px monospace';
-      const fallbackWidth = ctx.measureText('\uF179').width;
-      
+      ctx.font = "16px monospace";
+      const fallbackWidth = ctx.measureText("\uF179").width;
+
       // If widths differ significantly, Nerd Font is likely rendering
       return Math.abs(nerdFontWidth - fallbackWidth) > 1;
     }
@@ -2518,8 +2560,9 @@ interface Document extends DocumentExtensions {}
       }
 
       // Smart icon selection: prefer emoji fallbacks for better compatibility
-      const finalIcon = nerdFontIcon && supportsNerdFonts() ? nerdFontIcon : icon;
-      
+      const finalIcon =
+        nerdFontIcon && supportsNerdFonts() ? nerdFontIcon : icon;
+
       return {
         icon: finalIcon,
         color,

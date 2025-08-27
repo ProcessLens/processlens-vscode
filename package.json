@@ -107,7 +107,9 @@
     "lint": "echo 'Linting not configured yet'",
     "test": "echo 'Tests not configured yet'",
     "clean": "rm -rf out/ media/dashboard.js media/dashboard.js.map *.vsix",
-    "prepackage": "npm run clean && npm run compile"
+    "prepackage": "npm run clean && npm run compile",
+    "commit": "cz",
+    "prepare": "husky install"
   },
   "dependencies": {
     "uuid": "^9.0.1"
@@ -118,6 +120,10 @@
     "@types/uuid": "^9.0.7",
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^3.6.0",
+    "commitizen": "^4.3.0",
+    "cz-conventional-changelog": "^3.3.0",
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.7",
     "typescript": "^5.4.0"
   },
   "license": "MIT",
@@ -128,5 +134,16 @@
   "bugs": {
     "url": "https://github.com/ProcessLens/processlens-vscode/issues"
   },
-  "homepage": "https://processlens.dev"
+  "homepage": "https://processlens.dev",
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
+  },
+  "lint-staged": {
+    "*.{ts,js,json,md}": [
+      "npm run compile",
+      "git add"
+    ]
+  }
 }

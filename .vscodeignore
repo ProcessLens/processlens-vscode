@@ -34,3 +34,5 @@ CONTRIBUTING.md
 *.tsbuildinfo
 coverage/**
 .nyc_output/**
+.husky/**
+.czrc

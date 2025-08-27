@@ -721,6 +721,25 @@
             });
             dropdown.addEventListener("click", function (e) {
                 e.stopPropagation();
+                const target = e.target;
+                let checkbox = null;
+                if (target.tagName === "INPUT" && target.type === "checkbox") {
+                    return;
+                }
+                else if (target.tagName === "LABEL") {
+                    const forId = target.getAttribute("for");
+                    if (forId) {
+                        checkbox = document.getElementById(forId);
+                    }
+                }
+                else if (target.classList.contains("multi-select-option")) {
+                    checkbox = target.querySelector('input[type="checkbox"]');
+                }
+                if (checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                    const changeEvent = new Event("change", { bubbles: true });
+                    checkbox.dispatchEvent(changeEvent);
+                }
             });
             if (!document.hasMultiSelectClickHandler) {
                 document.addEventListener("click", function () {
@@ -817,6 +836,8 @@
             const allLabel = document.createElement("label");
             allLabel.setAttribute("for", allCheckbox.id);
             allLabel.textContent = defaultText;
+            allLabel.style.cursor = "pointer";
+            allLabel.style.userSelect = "none";
             allOptionDiv.appendChild(allCheckbox);
             allOptionDiv.appendChild(allLabel);
             dropdown.appendChild(allOptionDiv);
@@ -833,6 +854,8 @@
                 const label = document.createElement("label");
                 label.setAttribute("for", checkbox.id);
                 label.textContent = option.label;
+                label.style.cursor = "pointer";
+                label.style.userSelect = "none";
                 optionDiv.appendChild(checkbox);
                 optionDiv.appendChild(label);
                 dropdown.appendChild(optionDiv);
@@ -1650,14 +1673,14 @@
             return `hsl(${hue}, 45%, 60%)`;
         }
         function supportsNerdFonts() {
-            const testCanvas = document.createElement('canvas');
-            const ctx = testCanvas.getContext('2d');
+            const testCanvas = document.createElement("canvas");
+            const ctx = testCanvas.getContext("2d");
             if (!ctx)
                 return false;
             ctx.font = '16px "MesloLGS NF", "FiraCode Nerd Font", monospace';
-            const nerdFontWidth = ctx.measureText('\uF179').width;
-            ctx.font = '16px monospace';
-            const fallbackWidth = ctx.measureText('\uF179').width;
+            const nerdFontWidth = ctx.measureText("\uF179").width;
+            ctx.font = "16px monospace";
+            const fallbackWidth = ctx.measureText("\uF179").width;
             return Math.abs(nerdFontWidth - fallbackWidth) > 1;
         }
         function getDeviceInfo(run) {

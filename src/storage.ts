@@ -348,11 +348,19 @@ export class JsonlEventStore implements EventStore {
 
     if (filters.projectId) {
       if (Array.isArray(filters.projectId)) {
-        filtered = filtered.filter((e) =>
-          filters.projectId!.includes(e.projectId)
+        // Handle both projectId and projectName filtering
+        filtered = filtered.filter(
+          (e) =>
+            filters.projectId!.includes(e.projectId) ||
+            filters.projectId!.includes(e.projectName)
         );
       } else {
-        filtered = filtered.filter((e) => e.projectId === filters.projectId);
+        // Handle both projectId and projectName filtering
+        filtered = filtered.filter(
+          (e) =>
+            e.projectId === filters.projectId ||
+            e.projectName === filters.projectId
+        );
       }
     }
 
@@ -527,22 +535,25 @@ export class JsonlEventStore implements EventStore {
     const events = await this.recent({}, 10000);
     const projectCounts = new Map<
       string,
-      { projectName: string; runs: number }
+      { projectIds: Set<string>; runs: number }
     >();
 
+    // Group by project name to handle duplicate names with different IDs
     for (const event of events) {
-      const existing = projectCounts.get(event.projectId) || {
-        projectName: event.projectName,
+      const existing = projectCounts.get(event.projectName) || {
+        projectIds: new Set<string>(),
         runs: 0,
       };
+      existing.projectIds.add(event.projectId);
       existing.runs += 1;
-      projectCounts.set(event.projectId, existing);
+      projectCounts.set(event.projectName, existing);
     }
 
     return Array.from(projectCounts.entries())
-      .map(([projectId, stats]) => ({
-        projectId,
-        projectName: stats.projectName,
+      .map(([projectName, stats]) => ({
+        // Use project name as the identifier to avoid duplicates
+        projectId: projectName,
+        projectName,
         runs: stats.runs,
       }))
       .sort((a, b) => b.runs - a.runs);
