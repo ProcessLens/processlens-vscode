@@ -1,8 +1,19 @@
-# ProcessLens (VS Code)
+# ProcessLens (VS Code) 🚧 **BETA**
 
 🚀 **Developer productivity visibility.**
 Track and analyze build, test, and other process times to gain insights, spot trends, and iterate faster.
 Local-first — no data leaves your machine unless you opt in.
+
+> **⚠️ Beta Release Notice**  
+> ProcessLens is currently in **beta**. While core features are stable, you may encounter bugs or rough edges.
+>
+> **🙏 We need your feedback!** Please report issues, suggestions, or feature requests:
+>
+> - 🐛 [Report bugs](https://github.com/ProcessLens/processlens-vscode/issues/new?labels=bug&template=bug_report.md)
+> - 💡 [Request features](https://github.com/ProcessLens/processlens-vscode/issues/new?labels=enhancement&template=feature_request.md)
+> - 💬 [Join discussions](https://github.com/ProcessLens/processlens-vscode/discussions)
+>
+> Your input helps make ProcessLens better for everyone! 🚀
 
 ---
 

@@ -1,7 +1,7 @@
 {
   "name": "processlens",
-  "displayName": "ProcessLens",
-  "description": "Track and analyze build, test, and other process times to gain insights and iterate faster.",
+  "displayName": "ProcessLens (Beta)",
+  "description": "🚧 BETA: Track and analyze build, test, and other process times to gain insights and iterate faster. Feedback welcome!",
   "publisher": "processlens",
   "version": "0.1.2",
   "engines": {

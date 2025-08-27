@@ -11,7 +11,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-22.04, windows-2022, macos-14]
         node-version: [20, 22]
 
     steps:
@@ -40,7 +40,7 @@ jobs:
         run: npx vsce package --allow-star-activation
 
       - name: Upload package artifact
-        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '20'
+        if: matrix.os == 'ubuntu-22.04' && matrix.node-version == '20'
         uses: actions/upload-artifact@v4
         with:
           name: extension-package
