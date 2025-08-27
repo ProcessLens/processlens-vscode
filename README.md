@@ -114,10 +114,31 @@ _Example:_ A HIGH priority command running 100× at 10s average could save \~5 m
 
 ### Installation
 
-1. Install ProcessLens from the VS Code Marketplace
+**VS Code / Cursor / Windsurf:**
+
+1. Install ProcessLens from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=processlens.processlens)
 2. Open any workspace/project
 3. Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac)
-4. Run **“ProcessLens: Run Command”**
+4. Run **"ProcessLens: Run Command"**
+
+**VSCodium / Gitpod / Eclipse Theia:**
+
+1. Install from [Open VSX Registry](https://open-vsx.org/extension/processlens/processlens)
+2. Or search "ProcessLens" in your editor's extension marketplace
+3. Follow steps 2-4 above
+
+### 🔌 Editor Compatibility
+
+ProcessLens works with any VS Code-compatible editor:
+
+| Editor            | Marketplace         | Status          |
+| ----------------- | ------------------- | --------------- |
+| **VS Code**       | VS Code Marketplace | ✅ Full support |
+| **Cursor**        | VS Code Marketplace | ✅ Full support |
+| **Windsurf**      | VS Code Marketplace | ✅ Full support |
+| **VSCodium**      | Open VSX Registry   | ✅ Full support |
+| **Gitpod**        | Open VSX Registry   | ✅ Full support |
+| **Eclipse Theia** | Open VSX Registry   | ✅ Full support |
 
 ---
 

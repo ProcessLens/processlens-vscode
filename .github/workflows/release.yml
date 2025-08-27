@@ -13,6 +13,10 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: read
 
     steps:
       - name: Checkout code
@@ -55,40 +59,26 @@ jobs:
           echo "filename=$NAME-$VERSION.vsix" >> $GITHUB_OUTPUT
 
       - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ steps.package.outputs.version }}
-          release_name: ProcessLens v${{ steps.package.outputs.version }}
-          body: |
-            ## ProcessLens v${{ steps.package.outputs.version }}
+        run: |
+          gh release create v${{ steps.package.outputs.version }} \
+            --title "ProcessLens v${{ steps.package.outputs.version }}" \
+            --notes "## ProcessLens v${{ steps.package.outputs.version }}
 
-            ### 📦 Installation
-            Download the `.vsix` file below and install it in VS Code:
-            1. Open VS Code
-            2. Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac)
-            3. Type "Extensions: Install from VSIX"
-            4. Select the downloaded `.vsix` file
+          ### 📦 Installation
+          Download the \`.vsix\` file below and install it in VS Code:
+          1. Open VS Code
+          2. Press \`Ctrl+Shift+P\` (or \`Cmd+Shift+P\` on Mac)
+          3. Type \"Extensions: Install from VSIX\"
+          4. Select the downloaded \`.vsix\` file
 
-            ### 📋 Changes
-            See [CHANGELOG.md](https://github.com/ProcessLens/processlens-vscode/blob/main/CHANGELOG.md) for detailed changes.
+          ### 📋 Changes
+          See [CHANGELOG.md](https://github.com/ProcessLens/processlens-vscode/blob/main/CHANGELOG.md) for detailed changes.
 
-            ### 🐛 Issues
-            Report bugs or request features at: https://github.com/ProcessLens/processlens-vscode/issues
-          draft: false
-          prerelease: false
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./${{ steps.package.outputs.filename }}
-          asset_name: ${{ steps.package.outputs.filename }}
-          asset_content_type: application/zip
+          ### 🐛 Issues
+          Report bugs or request features at: https://github.com/ProcessLens/processlens-vscode/issues" \
+            ${{ steps.package.outputs.filename }}
 
       - name: Publish to VS Code Marketplace
         if: success()
