@@ -4,7 +4,7 @@ node_modules/
 *.vsix
 
 # Compiled TypeScript dashboard (generated from dashboard.ts)
-media/dashboard.js
-media/dashboard.js.map
+media/compiled/
+tsconfig.dashboard.json
 
 

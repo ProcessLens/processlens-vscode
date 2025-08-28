@@ -8,6 +8,6 @@
     "strict": true,
     "types": ["node", "vscode"]
   },
-  "include": ["src/**/*", "media/dashboard.ts"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "out"]
 }

@@ -30,7 +30,7 @@
   "activationEvents": [
     "*"
   ],
-  "main": "./out/src/extension.js",
+  "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
@@ -100,12 +100,17 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "npm run compile:dashboard && npm run compile:extension",
-    "compile:dashboard": "tsc -p tsconfig.dashboard.json",
+    "compile:dashboard": "npm run compile:modules && npm run bundle:dashboard",
+    "compile:modules": "tsc -p tsconfig.modules.json",
+    "bundle:dashboard": "node scripts/bundle-dashboard.js",
     "compile:extension": "tsc -p ./",
     "watch": "tsc -w -p ./",
     "package": "vsce package --allow-star-activation",
     "lint": "echo 'Linting not configured yet'",
-    "test": "echo 'Tests not configured yet'",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:coverage": "vitest run --coverage",
     "clean": "rm -rf out/ media/dashboard.js media/dashboard.js.map *.vsix",
     "prepackage": "npm run clean && npm run compile",
     "commit": "cz",
@@ -115,16 +120,20 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
     "@types/chart.js": "^2.9.41",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^20.11.0",
     "@types/uuid": "^9.0.7",
     "@types/vscode": "^1.85.0",
+    "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.6.0",
     "commitizen": "^4.3.0",
     "cz-conventional-changelog": "^3.3.0",
     "husky": "^9.0.11",
     "lint-staged": "^15.2.7",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vitest": "^3.2.4"
   },
   "license": "MIT",
   "repository": {

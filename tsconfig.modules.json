@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "lib": ["es2020", "dom"],
+    "module": "es2020",
+    "moduleResolution": "node",
+    "outDir": "media/compiled",
+    "rootDir": "media/modules",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": false,
+    "sourceMap": true,
+    "removeComments": false,
+    "noEmitOnError": true,
+    "allowJs": false
+  },
+  "include": ["media/modules/**/*.ts"],
+  "exclude": ["node_modules", "out", "media/dashboard.ts"]
+}

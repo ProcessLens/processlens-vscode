@@ -1,117 +1,129 @@
 # ProcessLens (VS Code)
 
-🚀 **Track and analyze build, test, and other process times to gain insights and iterate faster.** **Local-first** — no data leaves your machine.
+🚀 **Developer productivity visibility.**
+Track and analyze build, test, and other process times to gain insights, spot trends, and iterate faster.
+Local-first — no data leaves your machine unless you opt in.
 
-ProcessLens helps you identify performance bottlenecks, track trends over time, and optimize your development workflow by providing detailed analytics on command execution times.
+---
+
+## Why ProcessLens?
+
+Every developer waits for builds and tests. Even a few seconds repeated hundreds of times a day adds up.
+Without measurement, teams only _feel_ slowdowns — ProcessLens makes them visible.
+
+**Why it matters:**
+
+- ⏱ Seconds add up into hours
+- 📊 Evidence, not guesses — real data on your flow
+- 📈 Trends over time — catch creeping slowdowns
+- 👥 Team value — justify infra improvements with data
+- 🔍 Personal utility — OSS maintainers & indie devs spot regressions
+
+**What makes it different:**
+
+- 🌍 General-purpose: measure _any_ process, not just JS builds
+- 📉 Trend-focused: not just “this run took 9s” but “build times doubled this quarter”
+- 💻 Developer-first: lives in VS Code, zero-config, instant insight
+
+> Think of it as **time tracking for machines, not humans.**
+> Humans log hours worked. ProcessLens logs seconds wasted waiting on computers.
+
+---
 
 ## ✨ Features
 
-### 📊 **Comprehensive Dashboard**
+### 📊 Comprehensive Dashboard
 
-- **Global Stats**: Total runs, commands tracked, success rate, and active projects
-- **Recent Durations Chart**: Visual timeline of command execution times with hover details
-- **Command Summary Table**: Detailed statistics with customizable columns
-- **Recent Runs**: Last 10 command executions with trend indicators
+- Global stats: total runs, commands tracked, success rate, active projects
+- Recent durations chart with interactive hover details
+- Command summary table with customizable columns
+- Recent runs list with trend indicators
 
-### 📈 **Advanced Analytics**
+### 📈 Advanced Analytics
 
-- **Statistical Insights**: Average, Median, P95, Min/Max execution times
-- **7-Day Trend Analysis**: Track if commands are getting faster (↘), slower (↗), or stable (→)
-- **Success Rate Monitoring**: Track command reliability over time
-- **Hardware Change Detection**: Automatic annotations when your hardware configuration changes
+- Average, Median, P95, Min/Max execution times
+- 7-day trend analysis (↘ faster, ↗ slower, → stable)
+- Success rate monitoring
+- Hardware change detection
 
-### 🔥 **Impact Analysis - NEW!**
+### 🔥 Impact Analysis (NEW!)
 
-**Identify Your Biggest Time Sinks with Smart Calculations**
+Identify your biggest time sinks with smart calculations:
 
-- **Total Time Column**: Shows cumulative time consumed (duration × frequency)
-- **Impact Score**: Visual progress bar (0-100) showing relative impact compared to your most time-consuming command
-- **Time/Day**: Average daily time consumption for workflow analysis
-- **Beautiful Visualizations**: Color-coded impact bars with gradients (green → yellow → red)
+- **Total Time** — cumulative consumption (duration × frequency)
+- **Impact Score** — relative impact (0–100) compared to top offender
+- **Time/Day** — average daily time wasted
+- **Optimization Priority** — focus on high-impact commands first
+- **Beautiful visualizations** — color-coded bars (green → red)
 
-**How It Works:**
+_Example:_ A command that runs 50× at 2s each (100s total) has higher impact than a command that runs 2× at 30s (60s total).
 
-- **Smart Calculation**: Multiplies average duration by run frequency to find commands that consume the most total time
-- **Relative Scoring**: Impact scores are calculated relative to your highest time-consuming command (100 = highest impact)
-- **Optimization Priority**: Focus on high-impact commands first for maximum time savings
-- **Daily Insights**: Understand how much time each command consumes in your daily workflow
+### 🔮 Performance Predictions (NEW!)
 
-**Example**: A command that runs 50 times at 2 seconds each (100s total) has higher impact than a command that runs 2 times at 30 seconds each (60s total).
+Estimate potential savings from command optimizations:
 
-### 🔮 **Performance Predictions - NEW!**
+- **Projected Savings** — time saved if optimized
+- **Optimization Priority** — HIGH/MEDIUM/LOW based on multiple factors
+- **ROI Analysis** — prioritize where effort yields most benefit
+- **Trend Velocity** — track if commands are improving or degrading
 
-**Calculate Time Savings from Command Optimizations**
+**Smart scoring factors:**
 
-- **Projected Savings**: Estimates potential time savings if commands were optimized
-- **Optimization Priority**: Smart scoring (HIGH/MEDIUM/LOW) based on multiple factors
-- **ROI Analysis**: Helps prioritize which commands to optimize first
-- **Trend Velocity**: Tracks if commands are getting faster or slower over time
+- Impact score
+- Performance trends
+- Variability (consistency)
+- Frequency
 
-**Smart Scoring Factors:**
+**Conservative estimates:**
 
-- **Impact Score**: High-impact commands get higher optimization priority
-- **Performance Trends**: Commands getting slower have higher priority
-- **Variability**: Commands with inconsistent performance suggest optimization opportunities
-- **Frequency**: Frequently-run commands have more optimization potential
+- HIGH: 30% potential savings
+- MEDIUM: 15%
+- LOW: 5%
 
-**Conservative Estimates:**
+_Example:_ A HIGH priority command running 100× at 10s average could save \~5 minutes total if improved by 30%.
 
-- **HIGH Priority**: Assumes 30% improvement potential
-- **MEDIUM Priority**: Assumes 15% improvement potential
-- **LOW Priority**: Assumes 5% improvement potential
+### 🎛️ Interactive Features
 
-**Example**: A HIGH priority command running 100 times at 10s average could save ~5 minutes total if optimized by 30%.
+- Customizable columns
+- Trend sparklines (mini charts)
+- Clickable stats to filter recent runs
+- One-click re-run (▶)
+- Smart filtering by project, command, time, status, device
 
-### 🎛️ **Interactive Features**
+### 🔧 Command Execution
 
-- **Customizable Columns**: Show/hide statistics columns via 3-dot menu (⋯)
-- **Trend Sparklines**: Mini charts showing recent performance trends
-- **Clickable Analysis**: Click runs/success columns to filter recent runs
-- **One-Click Re-run**: Play buttons (▶) to instantly re-execute any command
-- **Smart Filtering**: Filter by project, command, time window, success status, and device
+- Shell history integration (bash/zsh/fish)
+- Auto-discovery of `package.json` scripts (npm/yarn)
+- Run any shell command with timing + status
+- Multi-project support
 
-### 🔧 **Command Execution**
-
-- **Shell History Integration**: Browse and execute commands from bash/zsh/fish history
-- **Package.json Scripts**: Automatic discovery and execution of npm/yarn scripts
-- **Custom Commands**: Run any shell command with full timing and status tracking
-- **Multi-Project Support**: Track commands across different workspaces
+---
 
 ## 🚀 Getting Started
 
 ### Installation
 
-1. Install ProcessLens from the VS Code Extensions marketplace
+1. Install ProcessLens from the VS Code Marketplace
 2. Open any workspace/project
 3. Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac)
-4. Type "ProcessLens: Run Command" and select it
-5. Choose a command to run and start tracking!
+4. Run **“ProcessLens: Run Command”**
+
+---
 
 ### 🔤 Font Requirements (Optional)
 
-For the best visual experience with OS icons on the dashboard, install a **Nerd Font**:
+For best visuals with OS icons, install a Nerd Font (MesloLGS NF, FiraCode NF, Hack NF, JetBrains Mono NF).
 
-**Recommended Fonts:**
-- **MesloLGS NF** (most popular, great compatibility)
-- **FiraCode Nerd Font** 
-- **Hack Nerd Font**
-- **JetBrains Mono Nerd Font**
+- **macOS**
 
-**Installation:**
-
-**macOS:**
 ```bash
-# Install with Homebrew
 brew tap homebrew/cask-fonts
 brew install font-meslo-lg-nerd-font
-
-# Or install multiple fonts
-brew install font-fira-code-nerd-font font-hack-nerd-font
 ```
 
-**Linux (Ubuntu/Debian):**
+- **Linux (Ubuntu/Debian)**
+
 ```bash
-# Download and install MesloLGS NF
 mkdir -p ~/.local/share/fonts
 curl -fLo "MesloLGS NF Regular.ttf" https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/Meslo/S/Regular/MesloLGSNerdFont-Regular.ttf
 curl -fLo "MesloLGS NF Bold.ttf" https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/Meslo/S/Bold/MesloLGSNerdFont-Bold.ttf
@@ -119,89 +131,112 @@ mv *.ttf ~/.local/share/fonts/
 fc-cache -fv
 ```
 
-**Windows:**
-1. Download fonts from [Nerd Fonts releases](https://github.com/ryanoasis/nerd-fonts/releases)
-2. Extract and install `.ttf` files by right-clicking → "Install"
-3. Restart VS Code
+- **Windows**
+  Download from [Nerd Fonts](https://github.com/ryanoasis/nerd-fonts/releases), extract, right-click → _Install_.
 
-**Note:** ProcessLens works perfectly without Nerd Fonts! It automatically falls back to emoji icons (🍎 for macOS, 🐧 for Linux, etc.) that display on all systems.
+_(Note: Works fine without Nerd Fonts — falls back to emoji icons 🍎 🐧 💻)_
 
-### Commands
+---
 
-- **ProcessLens: Run Command** — Execute and time any command (package.json scripts, shell history, or custom)
-- **ProcessLens: Open Dashboard** — View your comprehensive performance analytics
+## ⌨️ Commands
 
-### Quick Tips
+- **ProcessLens: Run Command** — Execute & time any command
+- **ProcessLens: Open Dashboard** — View analytics dashboard
 
-💡 **Browse Shell History**: Select "📜 Browse Shell History" in the command picker to access your recent terminal commands
+---
 
-💡 **Package.json Scripts**: Your project's npm/yarn scripts are automatically discovered and available in the command picker
+## 💡 Quick Tips
 
-💡 **Column Customization**: Click the ⋯ button in Command Summary to show/hide statistical columns
+- 📜 **Browse Shell History** via command picker
+- 📦 **package.json Scripts** auto-discovered
+- ⋯ **Column Customization** in Command Summary
+- 📈 **Trend Analysis** column shows 7-day performance
+- 🖥 **Hardware Tracking** auto-annotates changes
 
-💡 **Trend Analysis**: Enable the "Trend" column to see 7-day performance trends at a glance
-
-💡 **Hardware Tracking**: ProcessLens automatically detects hardware changes and marks them on your charts
+---
 
 ## 📊 Dashboard Guide
 
-### Global Stats (Top Bar)
+**Global Stats (Top Bar)**
 
-- **Total Runs**: Number of commands executed
-- **Commands Tracked**: Unique commands monitored
-- **Success Rate**: Percentage of successful executions
-- **Active Projects**: Number of different projects/workspaces
+- Total Runs | Commands Tracked | Success Rate | Active Projects
 
-### Chart Features
+**Chart**
 
-- **Color-coded dots**: Green (success), Red (failure), Yellow (unknown)
-- **Hardware annotations**: Vertical lines marking hardware changes
-- **Interactive tooltips**: Hover for command details and execution info
-- **Hover legend**: Detailed command information appears below chart
+- Color-coded dots: 🟢 success, 🔴 fail, 🟡 unknown
+- Hardware annotations (vertical lines)
+- Hover tooltips for command details
 
-### Command Summary Table
+**Command Summary Table**
 
-- **Default columns**: Command, Runs, Average, Success Rate
-- **Optional columns**: Median, P95, Min, Max, Trend, Sparkline
-- **Sortable**: Click any column header to sort
-- **Clickable**: Click run counts to filter, click success rates to show failures
-- **Play buttons**: Re-run any command instantly
+- Default: Command | Runs | Average | Success Rate
+- Optional: Median | P95 | Min | Max | Trend | Sparkline
+- Sortable + clickable
+- Play ▶ buttons for quick re-run
 
-### Statistical Columns Explained
+**Statistical Columns Explained**
 
-- **Average**: Mean execution time (can be skewed by outliers)
-- **Median**: Middle value (more reliable than average)
-- **P95**: 95th percentile (worst-case performance indicator)
-- **Min/Max**: Fastest and slowest recorded times
-- **Trend**: 7-day performance comparison (↗ slower, ↘ faster, → stable)
-- **Sparkline**: Mini chart of recent execution times
+- **Average** — mean execution time
+- **Median** — middle value, less skewed by outliers
+- **P95** — 95th percentile (worst-case)
+- **Min/Max** — fastest/slowest times
+- **Trend** — 7-day comparison (↗ slower, ↘ faster, → stable)
+- **Sparkline** — mini chart of recent times
+
+---
 
 ## ⚙️ Settings
 
-- `processlens.captureDeviceInfo`: Include OS/CPU/RAM/Node version in events (default: true)
-- `processlens.statusBar.enabled`: Show status bar item (default: true)
-- `processlens.statusBar.priority`: Status bar item priority (default: -10)
-- `processlens.storage.backend`: Storage backend - "jsonl" for MVP, "sqlite" planned (default: "jsonl")
+- `processlens.captureDeviceInfo` (default: true)
+- `processlens.statusBar.enabled` (default: true)
+- `processlens.statusBar.priority` (default: -10)
+- `processlens.storage.backend` — `"jsonl"` (default), `"sqlite"` planned
+
+---
 
 ## 🔒 Privacy & Data
 
-**100% Local-First**: All data stays on your machine. ProcessLens stores timing data locally in your VS Code global storage directory. No data is ever sent to external servers.
+ProcessLens is **100% local-first**.
 
-**Data Collected**:
+- Stores timing data locally in VS Code global storage.
+- Data collected: command execution times, exit codes, project info (hashed), device info, timestamps.
+- No external servers.
+- Cloud sync will always be **opt-in**.
 
-- Command execution times and exit codes
-- Project/workspace information (hashed)
-- Device hardware fingerprint (for trend analysis)
-- Timestamps and command names
+---
 
-**Data Storage**: JSON Lines format in your VS Code extension storage folder
+## 🗺 Roadmap
 
-## Development
+- ⏱ Watch-mode rebuild timings (Vite, Webpack, Jest)
+- 🗄 SQLite backend for faster querying
+- ☁️ Cloud sync (opt-in) → team dashboards & history
+- 📊 Advanced analytics: regressions, p50/p95 trends, team comparisons
+- 🔔 Alerts & recommendations
 
-- `npm i`
-- `npm run compile`
-- Press **F5** to launch the Extension Development Host.
+---
 
-## Packaging
+## 👨‍💻 Development
 
-- `npx vsce package`
+```bash
+npm i
+npm run compile
+# Press F5 in VS Code to launch Extension Development Host
+```
+
+---
+
+## 📦 Packaging
+
+```bash
+npx vsce package
+```
+
+---
+
+## 🤝 Contributing
+
+Found a bug or have a feature request? Please [open an issue](https://github.com/ProcessLens/processlens-vscode/issues) or submit a pull request.
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) file for details.

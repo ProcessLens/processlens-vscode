@@ -162,10 +162,11 @@ interface Document extends DocumentExtensions {}
   let currentFailedFilter: boolean = false;
   let trendPeriodDays: number = 7; // Default 7 days
 
-  // Heatmap global variables
+  // Heatmap feature removed for simplicity - keeping stubs for compilation
   let selectedHeatmapDay: string | null = null;
   let previousFiltersState: Partial<Filters> | null = null;
   let currentHeatmapYear: number = new Date().getFullYear();
+  let isHeatmapFilterUpdate = false;
 
   // Column visibility state - showing most important columns by default
   let visibleColumns: ColumnVisibility = {
@@ -247,8 +248,7 @@ interface Document extends DocumentExtensions {}
     // Setup chart tabs
     setupChartTabs();
 
-    // Setup heatmap year navigation
-    setupHeatmapYearNavigation();
+    // Heatmap navigation removed
 
     // Time range filter is handled by setupTimeRangeDropdown()
     // No need for additional event listener here
@@ -453,24 +453,12 @@ interface Document extends DocumentExtensions {}
 
       saveCurrentSettings(); // Save when filters change
 
-      // Clear heatmap selection if filters changed externally (not via heatmap click)
-      if (selectedHeatmapDay && !isHeatmapFilterUpdate) {
-        clearHeatmapSelection();
-      }
+      // Heatmap selection logic removed
 
       loadData();
     }
 
-    // Flag to prevent clearing selection during heatmap-initiated filter updates
-    let isHeatmapFilterUpdate = false;
-
-    function clearHeatmapSelection() {
-      selectedHeatmapDay = null;
-      previousFiltersState = null;
-      document.querySelectorAll(".heatmap-cell.selected").forEach((cell) => {
-        cell.classList.remove("selected");
-      });
-    }
+    // Heatmap functions removed for simplicity
 
     function getMultiSelectValues(filterType: string): string[] | undefined {
       const dropdown = document.getElementById(`${filterType}FilterDropdown`);
@@ -2693,9 +2681,7 @@ interface Document extends DocumentExtensions {}
       const targetTab = activeTab.getAttribute("data-tab");
 
       // Render the active chart with current filtered data
-      if (targetTab === "heatmap") {
-        renderHeatmap(lastData.runs);
-      } else if (targetTab === "performance") {
+      if (targetTab === "performance") {
         renderPerformanceMatrix(lastData.perCommand);
       }
       // Timeline chart is handled by the main chart rendering in renderData()
@@ -2725,9 +2711,7 @@ interface Document extends DocumentExtensions {}
             targetView.classList.remove("element-hidden");
 
             // Render specific chart type
-            if (targetTab === "heatmap" && lastData) {
-              renderHeatmap(lastData.runs);
-            } else if (targetTab === "performance" && lastData) {
+            if (targetTab === "performance" && lastData) {
               renderPerformanceMatrix(lastData.perCommand);
             }
           }
@@ -2735,7 +2719,8 @@ interface Document extends DocumentExtensions {}
       });
     }
 
-    function renderHeatmap(runs: any[]) {
+    // REMOVED: Heatmap feature simplified
+    function renderHeatmap_REMOVED(runs: any[]) {
       const heatmapGrid = document.getElementById("heatmapGrid");
       const heatmapMonths = document.getElementById("heatmapMonths");
       if (!heatmapGrid || !runs || runs.length === 0) return;
@@ -3344,7 +3329,7 @@ interface Document extends DocumentExtensions {}
         if (!isNaN(newYear) && newYear > 1900 && newYear < 3000) {
           currentHeatmapYear = newYear;
           if (lastData && lastData.runs) {
-            renderHeatmap(lastData.runs);
+            // renderHeatmap removed
           }
         }
       });
@@ -3357,7 +3342,7 @@ interface Document extends DocumentExtensions {}
             currentHeatmapYear.toString();
           updateYearDropdown();
           if (lastData && lastData.runs) {
-            renderHeatmap(lastData.runs);
+            // renderHeatmap removed
           }
         }
       });
@@ -3370,7 +3355,7 @@ interface Document extends DocumentExtensions {}
             currentHeatmapYear.toString();
           updateYearDropdown();
           if (lastData && lastData.runs) {
-            renderHeatmap(lastData.runs);
+            // renderHeatmap removed
           }
         }
       });

@@ -1,0 +1,16 @@
+{
+  "version": 3,
+  "sources": [
+    "compiled/types.js",
+    "compiled/formatters.js",
+    "compiled/state.js",
+    "compiled/charts.js",
+    "compiled/tables.js",
+    "compiled/filters.js",
+    "compiled/events.js",
+    "compiled/dashboard-main.js"
+  ],
+  "names": [],
+  "mappings": "",
+  "file": "dashboard.js"
+}
