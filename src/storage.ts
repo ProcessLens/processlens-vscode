@@ -84,6 +84,14 @@ export interface EventStore {
   getProjectStats(): Promise<
     { projectId: string; projectName: string; runs: number }[]
   >;
+  // New method for duplicate detection
+  recordExists(
+    tsStart: number,
+    command: string,
+    projectId: string
+  ): Promise<boolean>;
+  // New method for creating backups
+  createBackup(): Promise<string>;
 }
 
 export class JsonlEventStore implements EventStore {
@@ -557,6 +565,86 @@ export class JsonlEventStore implements EventStore {
         runs: stats.runs,
       }))
       .sort((a, b) => b.runs - a.runs);
+  }
+
+  async recordExists(
+    tsStart: number,
+    command: string,
+    projectId: string
+  ): Promise<boolean> {
+    try {
+      await this.ensureStorageDir();
+
+      // Check if file exists
+      try {
+        await fs.promises.access(this.filePath);
+      } catch {
+        return false; // File doesn't exist, so record can't exist
+      }
+
+      // Read file line by line to check for duplicate
+      const fileContent = await fs.promises.readFile(this.filePath, "utf8");
+      const lines = fileContent.trim().split(os.EOL);
+
+      for (const line of lines) {
+        if (line.trim()) {
+          try {
+            const event: EventRecord = JSON.parse(line);
+            // Check for duplicate based on unique combination of tsStart, command, and projectId
+            if (
+              event.tsStart === tsStart &&
+              event.command === command &&
+              event.projectId === projectId
+            ) {
+              return true;
+            }
+          } catch {
+            // Skip malformed lines
+            continue;
+          }
+        }
+      }
+
+      return false;
+    } catch (error) {
+      console.error("Error checking for duplicate record:", error);
+      return false; // On error, assume record doesn't exist to allow import
+    }
+  }
+
+  async createBackup(): Promise<string> {
+    try {
+      await this.ensureStorageDir();
+
+      // Check if main data file exists
+      try {
+        await fs.promises.access(this.filePath);
+      } catch {
+        throw new Error("No data file exists to backup");
+      }
+
+      // Create backup filename with timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const backupFileName = `events-backup-${timestamp}.jsonl`;
+      const backupPath = path.join(
+        this.context.globalStorageUri.fsPath,
+        backupFileName
+      );
+
+      // Copy the current data file to backup location
+      await fs.promises.copyFile(this.filePath, backupPath);
+
+      // Verify backup was created successfully
+      const stats = await fs.promises.stat(backupPath);
+      if (stats.size === 0) {
+        throw new Error("Backup file is empty");
+      }
+
+      return backupPath;
+    } catch (error) {
+      console.error("Error creating backup:", error);
+      throw new Error(`Failed to create backup: ${error}`);
+    }
   }
 
   private async ensureStorageDir(): Promise<void> {

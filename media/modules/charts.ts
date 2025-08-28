@@ -72,11 +72,17 @@ export class ChartRenderer {
       throw new Error("No valid timing data found");
     }
 
-    // Create point colors based on success/failure
+    // Create modern point styling based on success/failure
     const pointColors = chartData.map((point) => {
       if (point.success === true) return "#22c55e"; // Green for success
       if (point.success === false) return "#ef4444"; // Red for failure
       return "#eab308"; // Yellow for unclear
+    });
+
+    // Create gradient point backgrounds for modern look
+    const pointBackgroundColors = chartData.map((point, index) => {
+      const color = pointColors[index];
+      return color;
     });
 
     // Analyze value distribution for better chart scaling
@@ -100,6 +106,21 @@ export class ChartRenderer {
     const baseRadius = dataCount > 50 ? 3 : dataCount > 20 ? 4 : 5;
     const hoverRadius = baseRadius + 2;
 
+    // Variable point sizes based on duration (longer commands = bigger dots)
+    const pointRadii = chartData.map((point) => {
+      const baseDuration = Math.min(...chartData.map((d) => d.y));
+      const maxDuration = Math.max(...chartData.map((d) => d.y));
+      const durationRange = maxDuration - baseDuration;
+
+      if (durationRange === 0) return baseRadius;
+
+      const normalizedSize = (point.y - baseDuration) / durationRange;
+      const minRadius = Math.max(baseRadius - 1, 2);
+      const maxRadius = baseRadius + 3;
+
+      return minRadius + normalizedSize * (maxRadius - minRadius);
+    });
+
     dashboardState.chart = new Chart(ctx, {
       type: "line",
       data: {
@@ -107,19 +128,37 @@ export class ChartRenderer {
           {
             label: "Duration (ms)",
             data: chartDataWithTimestamps,
-            borderColor: "#4FC3F7",
-            backgroundColor: "rgba(79, 195, 247, 0.1)",
-            borderWidth: 2,
-            fill: false,
-            tension: 0,
+            // Modern gradient line
+            borderColor: (ctx: any) => {
+              const chart = ctx.chart;
+              const { ctx: canvasCtx, chartArea } = chart;
+              if (!chartArea) return "#4FC3F7";
+
+              const gradient = canvasCtx.createLinearGradient(
+                0,
+                chartArea.top,
+                0,
+                chartArea.bottom
+              );
+              gradient.addColorStop(0, "#60A5FA"); // Light blue
+              gradient.addColorStop(0.5, "#3B82F6"); // Medium blue
+              gradient.addColorStop(1, "#1E40AF"); // Dark blue
+              return gradient;
+            },
+            backgroundColor: "rgba(59, 130, 246, 0.05)", // Very subtle fill
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.2, // Slight curve for modern look
             stepped: false,
-            pointBackgroundColor: pointColors,
-            pointRadius: baseRadius,
-            pointHoverRadius: hoverRadius,
-            pointBorderColor: "rgba(255, 255, 255, 0.5)",
-            pointBorderWidth: 1,
-            pointHoverBorderWidth: 2,
-            // Add some spacing between points
+            // Modern point styling
+            pointBackgroundColor: pointBackgroundColors,
+            pointRadius: pointRadii,
+            pointHoverRadius: pointRadii.map((r) => r + 2),
+            pointBorderColor: pointColors.map((color) => color + "CC"), // Semi-transparent border
+            pointBorderWidth: 2,
+            pointHoverBorderWidth: 3,
+            pointHoverBorderColor: pointColors,
+            // Enhanced line display
             showLine: true,
           },
         ],
@@ -132,7 +171,9 @@ export class ChartRenderer {
             type: "linear",
             position: "bottom",
             grid: {
-              color: "rgba(255, 255, 255, 0.1)",
+              color: "rgba(255, 255, 255, 0.08)",
+              lineWidth: 1,
+              drawTicks: false, // Cleaner look without tick marks
             },
             ticks: {
               color: "rgba(255, 255, 255, 0.7)",
@@ -169,7 +210,9 @@ export class ChartRenderer {
             type: "linear", // Always use linear for now
             beginAtZero: true,
             grid: {
-              color: "rgba(255, 255, 255, 0.1)",
+              color: "rgba(255, 255, 255, 0.08)",
+              lineWidth: 1,
+              drawTicks: false, // Cleaner look without tick marks
             },
             ticks: {
               color: "rgba(255, 255, 255, 0.7)",
@@ -233,8 +276,20 @@ export class ChartRenderer {
           mode: "nearest",
         },
         animation: {
-          duration: 750,
-          easing: "easeInOutQuart",
+          duration: 1200,
+          easing: "easeInOutCubic",
+          // Stagger point animations for modern effect
+          delay: (context: any) => {
+            return context.type === "data" && context.mode === "default"
+              ? context.dataIndex * 50
+              : 0;
+          },
+        },
+        // Enhanced hover interactions
+        hover: {
+          mode: "nearest",
+          intersect: false,
+          animationDuration: 200,
         },
       },
     });

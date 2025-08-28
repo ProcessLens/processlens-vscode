@@ -329,14 +329,9 @@ export class EventHandlers {
   }
 
   public static clearAllData(): void {
-    if (
-      confirm(
-        "Are you sure you want to delete ALL ProcessLens data? This cannot be undone!"
-      )
-    ) {
-      const vscode = (window as any).vscode;
-      vscode.postMessage({ type: "CLEAR_DATA" });
-    }
+    // Send confirmation request to extension (webview can't show confirm dialogs due to CSP)
+    const vscode = (window as any).vscode;
+    vscode.postMessage({ type: "CONFIRM_CLEAR_DATA" });
   }
 
   public static cancelRunningTask(): void {
@@ -581,20 +576,101 @@ export class EventHandlers {
   }
 
   private static handleDataCleared(): void {
-    // Reset filters to default state
-    dashboardState.currentFilters = {
-      projectId: "",
-      command: "",
-      success: "all",
-      window: "all",
-      deviceInstance: null,
-    };
+    // Reset all filters and UI elements to default state
+    // Note: We need to reset the UI manually since clearAllFilters() would call loadData()
 
-    // Show empty state
+    // Note: We clear the entire dropdown contents below instead of just resetting checkboxes
+
+    // Reset time range to default (7 days)
+    document
+      .querySelectorAll(".time-range-option[data-type='relative']")
+      .forEach((opt) => {
+        opt.removeAttribute("data-selected");
+      });
+    const defaultTimeRange = document.querySelector(
+      '.time-range-option[data-value="7d"]'
+    );
+    if (defaultTimeRange) {
+      defaultTimeRange.setAttribute("data-selected", "true");
+    }
+
+    // Clear custom dates
+    const fromInput = document.getElementById(
+      "customFromDate"
+    ) as HTMLInputElement;
+    const toInput = document.getElementById("customToDate") as HTMLInputElement;
+    if (fromInput) fromInput.value = "";
+    if (toInput) toInput.value = "";
+
+    // Reset success filter dropdown
+    const successFilter = document.getElementById(
+      "successFilter"
+    ) as HTMLSelectElement;
+    if (successFilter) successFilter.value = "all";
+
+    // Update displays
+    const projectDisplay = document.getElementById("projectFilterDisplay");
+    const commandDisplay = document.getElementById("commandFilterDisplay");
+    const successDisplay = document.getElementById("successFilterDisplay");
+    const deviceDisplay = document.getElementById("deviceFilterDisplay");
+    const timeRangeDisplay = document.getElementById("timeRangeDisplay");
+
+    if (projectDisplay) projectDisplay.textContent = "All Projects";
+    if (commandDisplay) commandDisplay.textContent = "All Commands";
+    if (successDisplay) successDisplay.textContent = "All";
+    if (deviceDisplay) deviceDisplay.textContent = "All Devices";
+    if (timeRangeDisplay) timeRangeDisplay.textContent = "Last 7 Days";
+
+    // Reset state
+    dashboardState.reset();
+
+    // Clear dropdown contents (remove old project/command options)
+    console.log("Clearing dropdown contents...");
+    const dropdownIds = [
+      "projectFilterDropdown",
+      "commandFilterDropdown",
+      "deviceFilterDropdown",
+    ];
+    dropdownIds.forEach((dropdownId) => {
+      const dropdown = document.getElementById(dropdownId);
+      if (dropdown) {
+        // Clear all options and add back just the "All" option
+        dropdown.innerHTML = "";
+
+        // Create the "All" option based on dropdown type
+        const filterType = dropdownId.replace("FilterDropdown", "");
+        const allText =
+          filterType === "project"
+            ? "All Projects"
+            : filterType === "command"
+            ? "All Commands"
+            : filterType === "device"
+            ? "All Devices"
+            : "All";
+
+        const allOptionDiv = document.createElement("div");
+        allOptionDiv.className = "multi-select-option";
+        allOptionDiv.setAttribute("data-value", "all");
+
+        const allCheckbox = document.createElement("input");
+        allCheckbox.type = "checkbox";
+        allCheckbox.id = `${filterType}-all`;
+        allCheckbox.checked = true;
+
+        const allLabel = document.createElement("label");
+        allLabel.setAttribute("for", allCheckbox.id);
+        allLabel.textContent = allText;
+
+        allOptionDiv.appendChild(allCheckbox);
+        allOptionDiv.appendChild(allLabel);
+        dropdown.appendChild(allOptionDiv);
+
+        console.log(`Cleared ${dropdownId} and added ${allText} option`);
+      }
+    });
+
+    // Show empty state immediately
     EventHandlers.showEmptyState();
-
-    // Save the reset state
-    dashboardState.saveCurrentSettings();
   }
 
   private static handleProfileImported(message: any): void {

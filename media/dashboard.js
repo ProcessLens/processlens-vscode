@@ -477,13 +477,18 @@ window.ChartRenderer = class ChartRenderer {
         if (chartData.length === 0) {
             throw new Error("No valid timing data found");
         }
-        // Create point colors based on success/failure
+        // Create modern point styling based on success/failure
         const pointColors = chartData.map((point) => {
             if (point.success === true)
                 return "#22c55e"; // Green for success
             if (point.success === false)
                 return "#ef4444"; // Red for failure
             return "#eab308"; // Yellow for unclear
+        });
+        // Create gradient point backgrounds for modern look
+        const pointBackgroundColors = chartData.map((point, index) => {
+            const color = pointColors[index];
+            return color;
         });
         // Analyze value distribution for better chart scaling
         const values = chartData.map((d) => d.y);
@@ -502,6 +507,18 @@ window.ChartRenderer = class ChartRenderer {
         const dataCount = chartDataWithTimestamps.length;
         const baseRadius = dataCount > 50 ? 3 : dataCount > 20 ? 4 : 5;
         const hoverRadius = baseRadius + 2;
+        // Variable point sizes based on duration (longer commands = bigger dots)
+        const pointRadii = chartData.map((point) => {
+            const baseDuration = Math.min(...chartData.map((d) => d.y));
+            const maxDuration = Math.max(...chartData.map((d) => d.y));
+            const durationRange = maxDuration - baseDuration;
+            if (durationRange === 0)
+                return baseRadius;
+            const normalizedSize = (point.y - baseDuration) / durationRange;
+            const minRadius = Math.max(baseRadius - 1, 2);
+            const maxRadius = baseRadius + 3;
+            return minRadius + normalizedSize * (maxRadius - minRadius);
+        });
         dashboardState.chart = new Chart(ctx, {
             type: "line",
             data: {
@@ -509,19 +526,32 @@ window.ChartRenderer = class ChartRenderer {
                     {
                         label: "Duration (ms)",
                         data: chartDataWithTimestamps,
-                        borderColor: "#4FC3F7",
-                        backgroundColor: "rgba(79, 195, 247, 0.1)",
-                        borderWidth: 2,
-                        fill: false,
-                        tension: 0,
+                        // Modern gradient line
+                        borderColor: (ctx) => {
+                            const chart = ctx.chart;
+                            const { ctx: canvasCtx, chartArea } = chart;
+                            if (!chartArea)
+                                return "#4FC3F7";
+                            const gradient = canvasCtx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                            gradient.addColorStop(0, "#60A5FA"); // Light blue
+                            gradient.addColorStop(0.5, "#3B82F6"); // Medium blue
+                            gradient.addColorStop(1, "#1E40AF"); // Dark blue
+                            return gradient;
+                        },
+                        backgroundColor: "rgba(59, 130, 246, 0.05)", // Very subtle fill
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.2, // Slight curve for modern look
                         stepped: false,
-                        pointBackgroundColor: pointColors,
-                        pointRadius: baseRadius,
-                        pointHoverRadius: hoverRadius,
-                        pointBorderColor: "rgba(255, 255, 255, 0.5)",
-                        pointBorderWidth: 1,
-                        pointHoverBorderWidth: 2,
-                        // Add some spacing between points
+                        // Modern point styling
+                        pointBackgroundColor: pointBackgroundColors,
+                        pointRadius: pointRadii,
+                        pointHoverRadius: pointRadii.map((r) => r + 2),
+                        pointBorderColor: pointColors.map((color) => color + "CC"), // Semi-transparent border
+                        pointBorderWidth: 2,
+                        pointHoverBorderWidth: 3,
+                        pointHoverBorderColor: pointColors,
+                        // Enhanced line display
                         showLine: true,
                     },
                 ],
@@ -534,7 +564,9 @@ window.ChartRenderer = class ChartRenderer {
                         type: "linear",
                         position: "bottom",
                         grid: {
-                            color: "rgba(255, 255, 255, 0.1)",
+                            color: "rgba(255, 255, 255, 0.08)",
+                            lineWidth: 1,
+                            drawTicks: false, // Cleaner look without tick marks
                         },
                         ticks: {
                             color: "rgba(255, 255, 255, 0.7)",
@@ -571,7 +603,9 @@ window.ChartRenderer = class ChartRenderer {
                         type: "linear", // Always use linear for now
                         beginAtZero: true,
                         grid: {
-                            color: "rgba(255, 255, 255, 0.1)",
+                            color: "rgba(255, 255, 255, 0.08)",
+                            lineWidth: 1,
+                            drawTicks: false, // Cleaner look without tick marks
                         },
                         ticks: {
                             color: "rgba(255, 255, 255, 0.7)",
@@ -627,8 +661,20 @@ window.ChartRenderer = class ChartRenderer {
                     mode: "nearest",
                 },
                 animation: {
-                    duration: 750,
-                    easing: "easeInOutQuart",
+                    duration: 1200,
+                    easing: "easeInOutCubic",
+                    // Stagger point animations for modern effect
+                    delay: (context) => {
+                        return context.type === "data" && context.mode === "default"
+                            ? context.dataIndex * 50
+                            : 0;
+                    },
+                },
+                // Enhanced hover interactions
+                hover: {
+                    mode: "nearest",
+                    intersect: false,
+                    animationDuration: 200,
                 },
             },
         });
@@ -1997,10 +2043,9 @@ window.EventHandlers = class EventHandlers {
         vscode.postMessage({ type: "IMPORT_DATA" });
     }
     static clearAllData() {
-        if (confirm("Are you sure you want to delete ALL ProcessLens data? This cannot be undone!")) {
-            const vscode = window.vscode;
-            vscode.postMessage({ type: "CLEAR_DATA" });
-        }
+        // Send confirmation request to extension (webview can't show confirm dialogs due to CSP)
+        const vscode = window.vscode;
+        vscode.postMessage({ type: "CONFIRM_CLEAR_DATA" });
     }
     static cancelRunningTask() {
         const vscode = window.vscode;
@@ -2210,18 +2255,79 @@ window.EventHandlers = class EventHandlers {
         });
     }
     static handleDataCleared() {
-        // Reset filters to default state
-        dashboardState.currentFilters = {
-            projectId: "",
-            command: "",
-            success: "all",
-            window: "all",
-            deviceInstance: null,
-        };
-        // Show empty state
+        // Reset all filters and UI elements to default state
+        // Note: We need to reset the UI manually since clearAllFilters() would call loadData()
+        // Note: We clear the entire dropdown contents below instead of just resetting checkboxes
+        // Reset time range to default (7 days)
+        document
+            .querySelectorAll(".time-range-option[data-type='relative']")
+            .forEach((opt) => {
+            opt.removeAttribute("data-selected");
+        });
+        const defaultTimeRange = document.querySelector('.time-range-option[data-value="7d"]');
+        if (defaultTimeRange) {
+            defaultTimeRange.setAttribute("data-selected", "true");
+        }
+        // Clear custom dates
+        const fromInput = document.getElementById("customFromDate");
+        const toInput = document.getElementById("customToDate");
+        if (fromInput)
+            fromInput.value = "";
+        if (toInput)
+            toInput.value = "";
+        // Reset success filter dropdown
+        const successFilter = document.getElementById("successFilter");
+        if (successFilter)
+            successFilter.value = "all";
+        // Update displays
+        const projectDisplay = document.getElementById("projectFilterDisplay");
+        const commandDisplay = document.getElementById("commandFilterDisplay");
+        const successDisplay = document.getElementById("successFilterDisplay");
+        const deviceDisplay = document.getElementById("deviceFilterDisplay");
+        const timeRangeDisplay = document.getElementById("timeRangeDisplay");
+        if (projectDisplay)
+            projectDisplay.textContent = "All Projects";
+        if (commandDisplay)
+            commandDisplay.textContent = "All Commands";
+        if (successDisplay)
+            successDisplay.textContent = "All";
+        if (deviceDisplay)
+            deviceDisplay.textContent = "All Devices";
+        if (timeRangeDisplay)
+            timeRangeDisplay.textContent = "Last 7 Days";
+        // Reset state
+        dashboardState.reset();
+        // Clear dropdown contents (remove old project/command options)
+        console.log("Clearing dropdown contents...");
+        const dropdownIds = ["projectFilterDropdown", "commandFilterDropdown", "deviceFilterDropdown"];
+        dropdownIds.forEach(dropdownId => {
+            const dropdown = document.getElementById(dropdownId);
+            if (dropdown) {
+                // Clear all options and add back just the "All" option
+                dropdown.innerHTML = '';
+                // Create the "All" option based on dropdown type
+                const filterType = dropdownId.replace("FilterDropdown", "");
+                const allText = filterType === "project" ? "All Projects" :
+                    filterType === "command" ? "All Commands" :
+                        filterType === "device" ? "All Devices" : "All";
+                const allOptionDiv = document.createElement("div");
+                allOptionDiv.className = "multi-select-option";
+                allOptionDiv.setAttribute("data-value", "all");
+                const allCheckbox = document.createElement("input");
+                allCheckbox.type = "checkbox";
+                allCheckbox.id = `${filterType}-all`;
+                allCheckbox.checked = true;
+                const allLabel = document.createElement("label");
+                allLabel.setAttribute("for", allCheckbox.id);
+                allLabel.textContent = allText;
+                allOptionDiv.appendChild(allCheckbox);
+                allOptionDiv.appendChild(allLabel);
+                dropdown.appendChild(allOptionDiv);
+                console.log(`Cleared ${dropdownId} and added ${allText} option`);
+            }
+        });
+        // Show empty state immediately
         EventHandlers.showEmptyState();
-        // Save the reset state
-        dashboardState.saveCurrentSettings();
     }
     static handleProfileImported(message) {
         if (message.profile) {

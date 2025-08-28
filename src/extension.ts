@@ -484,7 +484,7 @@ function renderDashboardHtml(
                     <button id="importProfileBtn" class="import-btn" title="Import dashboard configuration from a profile">⚙️ Import Profile</button>
                 </div>
                 <button id="signinBtn" class="signin-btn" title="Coming soon! Sign in to sync data across devices">🔐 Sign In</button>
-                <button id="coffeeBtn" class="coffee-btn" title="Support ProcessLens development - Buy me a coffee! ☕">☕ Buy me a coffee</button>
+                <button id="coffeeBtn" class="coffee-btn" title="Support ProcessLens development - Buy me a coffee! ☕">☕</button>
                 <button id="cancelTaskBtn" class="cancel-task-btn element-hidden" title="Cancel the currently running command">⏹️ Cancel Task</button>
             </div>
             <div class="danger-actions">
@@ -638,809 +638,928 @@ function getNonce() {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log('ProcessLens extension is being activated...');
-  
+  console.log("ProcessLens extension is being activated...");
+
   try {
     // Initialize storage
     eventStore = new JsonlEventStore(context);
-    console.log('EventStore initialized successfully');
+    console.log("EventStore initialized successfully");
 
-  // Create status bar item
-  const statusBarEnabled = vscode.workspace
-    .getConfiguration()
-    .get<boolean>("processlens.statusBar.enabled", true);
-  if (statusBarEnabled) {
-    const priority = vscode.workspace
+    // Create status bar item
+    const statusBarEnabled = vscode.workspace
       .getConfiguration()
-      .get<number>("processlens.statusBar.priority", -10);
-    statusBarItem = vscode.window.createStatusBarItem(
-      vscode.StatusBarAlignment.Left,
-      priority
-    );
-    statusBarItem.command = "processlens.openDashboard";
-    updateStatusBar();
-    statusBarItem.show();
-    context.subscriptions.push(statusBarItem);
-  }
-
-  // Set up global task event listeners for dashboard refresh
-  const taskEndListener = vscode.tasks.onDidEndTaskProcess(async (e) => {
-    // Add small delay to ensure any ongoing save operations complete first
-    // This handles cases where tasks are run outside the play button (e.g., via Command Palette)
-    setTimeout(() => {
-      refreshAllDashboards();
-    }, 100);
-  });
-
-  context.subscriptions.push(taskEndListener);
-
-  console.log('Registering commands...');
-  const runCommand = vscode.commands.registerCommand(
-    "processlens.runCommand",
-    async () => {
-      const folder = await pickWorkspaceFolder();
-
-      // Get recent commands and package.json scripts
-      const currentProjectInfo = folder ? await getProjectInfo(folder) : null;
-      const recentCommands = await eventStore.getRecentCommands(
-        currentProjectInfo?.projectId,
-        10
+      .get<boolean>("processlens.statusBar.enabled", true);
+    if (statusBarEnabled) {
+      const priority = vscode.workspace
+        .getConfiguration()
+        .get<number>("processlens.statusBar.priority", -10);
+      statusBarItem = vscode.window.createStatusBarItem(
+        vscode.StatusBarAlignment.Left,
+        priority
       );
-      const packageScripts = folder ? await readPackageJsonScripts(folder) : {};
-      const scriptNames = Object.keys(packageScripts);
+      statusBarItem.command = "processlens.openDashboard";
+      updateStatusBar();
+      statusBarItem.show();
+      context.subscriptions.push(statusBarItem);
+    }
 
-      // Build quick pick items
-      const items: vscode.QuickPickItem[] = [];
+    // Set up global task event listeners for dashboard refresh
+    const taskEndListener = vscode.tasks.onDidEndTaskProcess(async (e) => {
+      // Add small delay to ensure any ongoing save operations complete first
+      // This handles cases where tasks are run outside the play button (e.g., via Command Palette)
+      setTimeout(() => {
+        refreshAllDashboards();
+      }, 100);
+    });
 
-      // Add shell history option at the very top
-      items.push({
-        label: "📜 Browse Shell History",
-        description: "Search through your terminal history",
-        detail: "Access commands from bash, zsh, or fish history",
-      });
+    context.subscriptions.push(taskEndListener);
 
-      // Add recent commands
-      if (recentCommands.length > 0) {
+    console.log("Registering commands...");
+    const runCommand = vscode.commands.registerCommand(
+      "processlens.runCommand",
+      async () => {
+        const folder = await pickWorkspaceFolder();
+
+        // Get recent commands and package.json scripts
+        const currentProjectInfo = folder ? await getProjectInfo(folder) : null;
+        const recentCommands = await eventStore.getRecentCommands(
+          currentProjectInfo?.projectId,
+          10
+        );
+        const packageScripts = folder
+          ? await readPackageJsonScripts(folder)
+          : {};
+        const scriptNames = Object.keys(packageScripts);
+
+        // Build quick pick items
+        const items: vscode.QuickPickItem[] = [];
+
+        // Add shell history option at the very top
         items.push({
-          label: "Recently Used Commands",
-          kind: vscode.QuickPickItemKind.Separator,
+          label: "📜 Browse Shell History",
+          description: "Search through your terminal history",
+          detail: "Access commands from bash, zsh, or fish history",
         });
-        recentCommands.forEach((cmd) => {
+
+        // Add recent commands
+        if (recentCommands.length > 0) {
           items.push({
-            label: cmd,
-            description: "Recent command",
-            detail: `Previously run in ${
-              currentProjectInfo?.projectName || "this workspace"
-            }`,
+            label: "Recently Used Commands",
+            kind: vscode.QuickPickItemKind.Separator,
           });
-        });
-      }
-
-      // Add package.json scripts
-      if (scriptNames.length > 0) {
-        items.push({
-          label: "Package.json Scripts",
-          kind: vscode.QuickPickItemKind.Separator,
-        });
-        scriptNames.forEach((script) => {
-          items.push({
-            label: `npm run ${script}`,
-            description: "Package script",
-            detail: packageScripts[script],
-          });
-        });
-      }
-
-      let input: string | undefined;
-
-      if (items.length > 0) {
-        // Show QuickPick with existing commands, but allow typing new ones
-        const quickPick = vscode.window.createQuickPick();
-        quickPick.items = items;
-        quickPick.placeholder = "Select a command or type a new one to run";
-        quickPick.matchOnDescription = true;
-        quickPick.matchOnDetail = true;
-
-        const selection = await new Promise<string | undefined>(
-          (resolve, reject) => {
-            let isResolved = false;
-            let isInShellHistory = false;
-
-            quickPick.onDidChangeValue((value) => {
-              // If user is typing something that doesn't match any items,
-              // we'll use their input as the command
-              if (
-                value &&
-                !items.some(
-                  (item) =>
-                    item.kind !== vscode.QuickPickItemKind.Separator &&
-                    item.label.toLowerCase().includes(value.toLowerCase())
-                )
-              ) {
-                // Show a dynamic item for their custom input
-                quickPick.items = [
-                  ...items,
-                  {
-                    label: value,
-                    description: "Run this custom command",
-                    detail: "Press Enter to execute",
-                  },
-                ];
-              } else if (!value) {
-                // Reset to original items when input is cleared
-                quickPick.items = items;
-              }
+          recentCommands.forEach((cmd) => {
+            items.push({
+              label: cmd,
+              description: "Recent command",
+              detail: `Previously run in ${
+                currentProjectInfo?.projectName || "this workspace"
+              }`,
             });
+          });
+        }
 
-            quickPick.onDidAccept(async () => {
-              const selected = quickPick.selectedItems[0];
+        // Add package.json scripts
+        if (scriptNames.length > 0) {
+          items.push({
+            label: "Package.json Scripts",
+            kind: vscode.QuickPickItemKind.Separator,
+          });
+          scriptNames.forEach((script) => {
+            items.push({
+              label: `npm run ${script}`,
+              description: "Package script",
+              detail: packageScripts[script],
+            });
+          });
+        }
 
-              if (selected?.label === "📜 Browse Shell History") {
-                isInShellHistory = true; // Flag that we're in shell history mode
-                quickPick.hide(); // Hide the main picker while shell history is shown
-                try {
-                  const historyCommand = await showShellHistoryPicker();
+        let input: string | undefined;
+
+        if (items.length > 0) {
+          // Show QuickPick with existing commands, but allow typing new ones
+          const quickPick = vscode.window.createQuickPick();
+          quickPick.items = items;
+          quickPick.placeholder = "Select a command or type a new one to run";
+          quickPick.matchOnDescription = true;
+          quickPick.matchOnDetail = true;
+
+          const selection = await new Promise<string | undefined>(
+            (resolve, reject) => {
+              let isResolved = false;
+              let isInShellHistory = false;
+
+              quickPick.onDidChangeValue((value) => {
+                // If user is typing something that doesn't match any items,
+                // we'll use their input as the command
+                if (
+                  value &&
+                  !items.some(
+                    (item) =>
+                      item.kind !== vscode.QuickPickItemKind.Separator &&
+                      item.label.toLowerCase().includes(value.toLowerCase())
+                  )
+                ) {
+                  // Show a dynamic item for their custom input
+                  quickPick.items = [
+                    ...items,
+                    {
+                      label: value,
+                      description: "Run this custom command",
+                      detail: "Press Enter to execute",
+                    },
+                  ];
+                } else if (!value) {
+                  // Reset to original items when input is cleared
+                  quickPick.items = items;
+                }
+              });
+
+              quickPick.onDidAccept(async () => {
+                const selected = quickPick.selectedItems[0];
+
+                if (selected?.label === "📜 Browse Shell History") {
+                  isInShellHistory = true; // Flag that we're in shell history mode
+                  quickPick.hide(); // Hide the main picker while shell history is shown
+                  try {
+                    const historyCommand = await showShellHistoryPicker();
+                    if (!isResolved) {
+                      isResolved = true;
+                      resolve(historyCommand);
+                    }
+                    quickPick.dispose(); // Dispose AFTER we get the result
+                    return; // Important: exit the function here
+                  } catch (error) {
+                    quickPick.dispose(); // Dispose on error too
+                    reject(error);
+                    return;
+                  }
+                } else if (
+                  selected &&
+                  selected.kind !== vscode.QuickPickItemKind.Separator
+                ) {
                   if (!isResolved) {
                     isResolved = true;
-                    resolve(historyCommand);
+                    resolve(selected.label);
                   }
-                  quickPick.dispose(); // Dispose AFTER we get the result
-                  return; // Important: exit the function here
-                } catch (error) {
-                  quickPick.dispose(); // Dispose on error too
-                  reject(error);
+                  quickPick.dispose();
+                  return;
+                } else if (quickPick.value.trim()) {
+                  // User typed something and pressed Enter
+                  if (!isResolved) {
+                    isResolved = true;
+                    resolve(quickPick.value.trim());
+                  }
+                  quickPick.dispose();
                   return;
                 }
-              } else if (
-                selected &&
-                selected.kind !== vscode.QuickPickItemKind.Separator
-              ) {
-                if (!isResolved) {
-                  isResolved = true;
-                  resolve(selected.label);
-                }
-                quickPick.dispose();
-                return;
-              } else if (quickPick.value.trim()) {
-                // User typed something and pressed Enter
-                if (!isResolved) {
-                  isResolved = true;
-                  resolve(quickPick.value.trim());
-                }
-                quickPick.dispose();
-                return;
-              }
-            });
+              });
 
-            quickPick.onDidHide(() => {
-              if (!isResolved && !isInShellHistory) {
-                isResolved = true;
-                resolve(undefined);
-              }
-              if (!isInShellHistory) {
-                quickPick.dispose();
-              }
-            });
+              quickPick.onDidHide(() => {
+                if (!isResolved && !isInShellHistory) {
+                  isResolved = true;
+                  resolve(undefined);
+                }
+                if (!isInShellHistory) {
+                  quickPick.dispose();
+                }
+              });
 
-            quickPick.show();
+              quickPick.show();
+            }
+          );
+
+          input = selection;
+        } else {
+          // No recent commands or scripts, go straight to input box
+          input = await vscode.window.showInputBox({
+            prompt: "Enter a shell command to run",
+            placeHolder: "e.g., echo hello && sleep 1",
+          });
+        }
+
+        if (!input) {
+          return;
+        }
+
+        const result = await runAsTaskAndTime(
+          input,
+          { type: "processlens-ad-hoc", cmd: input },
+          folder?.uri
+        );
+
+        // Get device and project info
+        const deviceId = await getOrCreateDeviceId(context);
+        const hardwareInfo = getHardwareInfo();
+        const hardwareHash = computeHardwareHash(hardwareInfo);
+        const finalProjectInfo = folder
+          ? await getProjectInfo(folder)
+          : {
+              projectId: "no-project",
+              projectName: "No Project",
+              globalProjectId: "no-project",
+              localProjectId: "no-project",
+              projectPath: process.cwd(),
+              repositoryName: undefined,
+              gitOriginUrl: undefined,
+            };
+
+        const evt: EventRecord = {
+          tsStart: result.tsStart,
+          tsEnd: result.tsEnd,
+          durationMs: result.durationMs,
+          exitCode: result.exitCode,
+          command: input,
+          cwd: folder?.uri.fsPath || process.cwd(),
+          projectId: finalProjectInfo.projectId,
+          projectName: finalProjectInfo.projectName,
+          // Enhanced project identification for global database
+          globalProjectId: finalProjectInfo.globalProjectId,
+          localProjectId: finalProjectInfo.localProjectId,
+          repositoryName: finalProjectInfo.repositoryName,
+          gitOriginUrl: finalProjectInfo.gitOriginUrl,
+          deviceId,
+          hardwareHash,
+          device: hardwareInfo,
+        };
+
+        await eventStore.append(evt);
+        updateStatusBar({
+          success: result.success,
+          durationMs: result.durationMs,
+        });
+
+        // Refresh all open dashboards
+        refreshAllDashboards();
+
+        // Show a brief notification that auto-dismisses after 2.5 seconds
+        const message = `Command ${
+          result.success ? "completed" : "failed"
+        } in ${formatDuration(result.durationMs)}`;
+
+        // Create a promise that resolves after timeout to auto-dismiss
+        const timeoutPromise = new Promise<string | undefined>((resolve) => {
+          setTimeout(() => resolve(undefined), 2500); // Auto-dismiss after 2.5 seconds
+        });
+
+        // Show notification with auto-dismiss - it will close automatically
+        Promise.race([
+          vscode.window.showInformationMessage(message, "Dismiss"),
+          timeoutPromise,
+        ]).then(() => {
+          // Message either dismissed by user or auto-dismissed
+        });
+      }
+    );
+
+    const openDashboard = vscode.commands.registerCommand(
+      "processlens.openDashboard",
+      async () => {
+        const panel = vscode.window.createWebviewPanel(
+          "processlens.dashboard",
+          "ProcessLens Dashboard",
+          vscode.ViewColumn.Active,
+          {
+            enableScripts: true,
+            retainContextWhenHidden: true,
+            localResourceRoots: [
+              vscode.Uri.joinPath(context.extensionUri, "media"),
+            ],
           }
         );
 
-        input = selection;
-      } else {
-        // No recent commands or scripts, go straight to input box
-        input = await vscode.window.showInputBox({
-          prompt: "Enter a shell command to run",
-          placeHolder: "e.g., echo hello && sleep 1",
+        // Track panel for auto-refresh
+        dashboardPanels.push(panel);
+        panel.onDidDispose(() => {
+          const index = dashboardPanels.indexOf(panel);
+          if (index > -1) {
+            dashboardPanels.splice(index, 1);
+          }
         });
-      }
 
-      if (!input) {
-        return;
-      }
+        panel.webview.html = renderDashboardHtml(context, panel.webview);
 
-      const result = await runAsTaskAndTime(
-        input,
-        { type: "processlens-ad-hoc", cmd: input },
-        folder?.uri
-      );
-
-      // Get device and project info
-      const deviceId = await getOrCreateDeviceId(context);
-      const hardwareInfo = getHardwareInfo();
-      const hardwareHash = computeHardwareHash(hardwareInfo);
-      const finalProjectInfo = folder
-        ? await getProjectInfo(folder)
-        : {
-            projectId: "no-project",
-            projectName: "No Project",
-            globalProjectId: "no-project",
-            localProjectId: "no-project",
-            projectPath: process.cwd(),
-            repositoryName: undefined,
-            gitOriginUrl: undefined,
-          };
-
-      const evt: EventRecord = {
-        tsStart: result.tsStart,
-        tsEnd: result.tsEnd,
-        durationMs: result.durationMs,
-        exitCode: result.exitCode,
-        command: input,
-        cwd: folder?.uri.fsPath || process.cwd(),
-        projectId: finalProjectInfo.projectId,
-        projectName: finalProjectInfo.projectName,
-        // Enhanced project identification for global database
-        globalProjectId: finalProjectInfo.globalProjectId,
-        localProjectId: finalProjectInfo.localProjectId,
-        repositoryName: finalProjectInfo.repositoryName,
-        gitOriginUrl: finalProjectInfo.gitOriginUrl,
-        deviceId,
-        hardwareHash,
-        device: hardwareInfo,
-      };
-
-      await eventStore.append(evt);
-      updateStatusBar({
-        success: result.success,
-        durationMs: result.durationMs,
-      });
-
-      // Refresh all open dashboards
-      refreshAllDashboards();
-
-      // Show a brief notification that auto-dismisses after 2.5 seconds
-      const message = `Command ${
-        result.success ? "completed" : "failed"
-      } in ${formatDuration(result.durationMs)}`;
-
-      // Create a promise that resolves after timeout to auto-dismiss
-      const timeoutPromise = new Promise<string | undefined>((resolve) => {
-        setTimeout(() => resolve(undefined), 2500); // Auto-dismiss after 2.5 seconds
-      });
-
-      // Show notification with auto-dismiss - it will close automatically
-      Promise.race([
-        vscode.window.showInformationMessage(message, "Dismiss"),
-        timeoutPromise,
-      ]).then(() => {
-        // Message either dismissed by user or auto-dismissed
-      });
-    }
-  );
-
-  const openDashboard = vscode.commands.registerCommand(
-    "processlens.openDashboard",
-    async () => {
-      const panel = vscode.window.createWebviewPanel(
-        "processlens.dashboard",
-        "ProcessLens Dashboard",
-        vscode.ViewColumn.Active,
-        {
-          enableScripts: true,
-          retainContextWhenHidden: true,
-          localResourceRoots: [
-            vscode.Uri.joinPath(context.extensionUri, "media"),
-          ],
-        }
-      );
-
-      // Track panel for auto-refresh
-      dashboardPanels.push(panel);
-      panel.onDidDispose(() => {
-        const index = dashboardPanels.indexOf(panel);
-        if (index > -1) {
-          dashboardPanels.splice(index, 1);
-        }
-      });
-
-      panel.webview.html = renderDashboardHtml(context, panel.webview);
-
-      // Handle messages from webview
-      panel.webview.onDidReceiveMessage(async (message) => {
-        switch (message.type) {
-          case "LOAD":
-            const filters: Filters = message.filters || {};
-            const trendPeriodDays = message.trendPeriodDays || 7;
-            const runs = await eventStore.recent(filters, 50);
-            const perCommand = await eventStore.aggregateByCommand(
-              filters,
-              trendPeriodDays
-            );
-
-            // Get unique values for filters with smart sorting
-            const allRuns = await eventStore.recent({}, 1000);
-            const projectStats = await eventStore.getProjectStats();
-            const projects = projectStats.map((p) => ({
-              value: p.projectId,
-              label: p.projectName,
-            }));
-
-            const commands = [...new Set(allRuns.map((r) => r.command))].map(
-              (cmd) => ({ value: cmd, label: cmd })
-            );
-            const devices = [
-              ...new Set(allRuns.map((r) => `${r.deviceId}|${r.hardwareHash}`)),
-            ].map((key) => {
-              const [deviceId, hardwareHash] = key.split("|");
-              const sampleRun = allRuns.find(
-                (r) =>
-                  r.deviceId === deviceId && r.hardwareHash === hardwareHash
+        // Handle messages from webview
+        panel.webview.onDidReceiveMessage(async (message) => {
+          switch (message.type) {
+            case "LOAD":
+              const filters: Filters = message.filters || {};
+              const trendPeriodDays = message.trendPeriodDays || 7;
+              const runs = await eventStore.recent(filters, 50);
+              const perCommand = await eventStore.aggregateByCommand(
+                filters,
+                trendPeriodDays
               );
-              return {
-                value: key,
-                label: sampleRun?.device
-                  ? getHardwareLabel(sampleRun.device)
-                  : `Device ${deviceId.slice(0, 8)}`,
-              };
-            });
 
-            panel.webview.postMessage({
-              type: "DATA",
-              runs,
-              perCommand,
-              projects,
-              commands,
-              devices,
-            });
-            break;
+              // Get unique values for filters with smart sorting
+              const allRuns = await eventStore.recent({}, 1000);
+              const projectStats = await eventStore.getProjectStats();
+              const projects = projectStats.map((p) => ({
+                value: p.projectId,
+                label: p.projectName,
+              }));
 
-          case "EXPORT_DATA":
-            const exportFilters: Filters = message.filters || {};
-            const exportRuns = await eventStore.recent(exportFilters, 10000);
-
-            const exportData = {
-              version: CURRENT_DATA_VERSION,
-              exported: new Date().toISOString(),
-              exportedBy: "ProcessLens VS Code Extension",
-              filters: exportFilters,
-              totalRecords: exportRuns.length,
-              data: exportRuns,
-            };
-
-            const saveDataUri = await vscode.window.showSaveDialog({
-              defaultUri: vscode.Uri.joinPath(
-                vscode.workspace.workspaceFolders?.[0]?.uri ||
-                  vscode.Uri.file(require("os").homedir()),
-                `processlens-data-${
-                  new Date().toISOString().split("T")[0]
-                }.json`
-              ),
-              filters: { "JSON files": ["json"] },
-            });
-
-            if (saveDataUri) {
-              await vscode.workspace.fs.writeFile(
-                saveDataUri,
-                Buffer.from(JSON.stringify(exportData, null, 2), "utf8")
+              const commands = [...new Set(allRuns.map((r) => r.command))].map(
+                (cmd) => ({ value: cmd, label: cmd })
               );
-              vscode.window.showInformationMessage(
-                `Exported ${exportRuns.length} records to ${saveDataUri.fsPath}`
-              );
-            }
-            break;
-
-          case "EXPORT_PROFILE":
-            const profile = message.profile;
-
-            const saveProfileUri = await vscode.window.showSaveDialog({
-              defaultUri: vscode.Uri.joinPath(
-                vscode.workspace.workspaceFolders?.[0]?.uri ||
-                  vscode.Uri.file(require("os").homedir()),
-                `${profile.name
-                  .replace(/[^a-zA-Z0-9-]/g, "-")
-                  .toLowerCase()}.json`
-              ),
-              filters: { "JSON files": ["json"] },
-            });
-
-            if (saveProfileUri) {
-              await vscode.workspace.fs.writeFile(
-                saveProfileUri,
-                Buffer.from(JSON.stringify(profile, null, 2), "utf8")
-              );
-              vscode.window.showInformationMessage(
-                `Profile exported to ${saveProfileUri.fsPath}`
-              );
-            }
-            break;
-
-          case "IMPORT_DATA":
-            const openDataUri = await vscode.window.showOpenDialog({
-              canSelectFiles: true,
-              canSelectFolders: false,
-              canSelectMany: false,
-              filters: { "JSON files": ["json"] },
-            });
-
-            if (openDataUri && openDataUri[0]) {
-              try {
-                const dataContent = await vscode.workspace.fs.readFile(
-                  openDataUri[0]
+              const devices = [
+                ...new Set(
+                  allRuns.map((r) => `${r.deviceId}|${r.hardwareHash}`)
+                ),
+              ].map((key) => {
+                const [deviceId, hardwareHash] = key.split("|");
+                const sampleRun = allRuns.find(
+                  (r) =>
+                    r.deviceId === deviceId && r.hardwareHash === hardwareHash
                 );
-                const importedData = JSON.parse(dataContent.toString());
-
-                // Validate version
-                const versionCheck = validateDataVersion(importedData.version);
-                if (!versionCheck.valid) {
-                  vscode.window.showErrorMessage(
-                    `Cannot import data: ${versionCheck.message}`
-                  );
-                  break;
-                }
-
-                if (importedData.data && Array.isArray(importedData.data)) {
-                  for (const record of importedData.data) {
-                    await eventStore.append(record);
-                  }
-
-                  vscode.window.showInformationMessage(
-                    `Successfully imported ${importedData.data.length} records (version ${importedData.version})`
-                  );
-
-                  panel.webview.postMessage({ type: "UPDATED" });
-                } else {
-                  vscode.window.showErrorMessage(
-                    "Invalid data format - missing or invalid data array"
-                  );
-                }
-              } catch (error) {
-                if (error instanceof SyntaxError) {
-                  vscode.window.showErrorMessage("Invalid JSON file format");
-                } else {
-                  vscode.window.showErrorMessage(`Import failed: ${error}`);
-                }
-              }
-            }
-            break;
-
-          case "IMPORT_PROFILE":
-            const openProfileUri = await vscode.window.showOpenDialog({
-              canSelectFiles: true,
-              canSelectFolders: false,
-              canSelectMany: false,
-              filters: { "JSON files": ["json"] },
-            });
-
-            if (openProfileUri && openProfileUri[0]) {
-              try {
-                const profileContent = await vscode.workspace.fs.readFile(
-                  openProfileUri[0]
-                );
-                const importedProfile = JSON.parse(profileContent.toString());
-
-                // Validate version
-                const versionCheck = validateProfileVersion(
-                  importedProfile.version
-                );
-                if (!versionCheck.valid) {
-                  vscode.window.showErrorMessage(
-                    `Cannot import profile: ${versionCheck.message}`
-                  );
-                  break;
-                }
-
-                if (importedProfile.config) {
-                  vscode.window.showInformationMessage(
-                    `Successfully imported profile "${importedProfile.name}" (version ${importedProfile.version})`
-                  );
-
-                  panel.webview.postMessage({
-                    type: "PROFILE_IMPORTED",
-                    profile: importedProfile,
-                  });
-                } else {
-                  vscode.window.showErrorMessage(
-                    "Invalid profile format - missing config section"
-                  );
-                }
-              } catch (error) {
-                if (error instanceof SyntaxError) {
-                  vscode.window.showErrorMessage("Invalid JSON file format");
-                } else {
-                  vscode.window.showErrorMessage(
-                    `Profile import failed: ${error}`
-                  );
-                }
-              }
-            }
-            break;
-
-          case "CONFIRM_CLEAR_DATA":
-            console.log("Received CONFIRM_CLEAR_DATA message from webview");
-            const confirmed = await vscode.window.showWarningMessage(
-              "⚠️ WARNING: This will permanently delete ALL ProcessLens data including timing history, device info, and project mappings.\n\nThis action cannot be undone.",
-              { modal: true },
-              "Clear All Data"
-            );
-
-            if (confirmed === "Clear All Data") {
-              console.log("User confirmed data clearing via VS Code dialog");
-              // Proceed with clearing
-              try {
-                console.log("Attempting to clear event store...");
-                await eventStore.clear();
-                console.log("Event store cleared successfully");
-
-                // Also clear device ID to fully reset
-                console.log("Clearing device ID from global state...");
-                await context.globalState.update(
-                  "processlens.deviceId",
-                  undefined
-                );
-                console.log("Device ID cleared successfully");
-
-                updateStatusBar(); // Reset status bar
-                console.log("Sending DATA_CLEARED message to webview");
-                panel.webview.postMessage({ type: "DATA_CLEARED" });
-                vscode.window.showInformationMessage(
-                  "All ProcessLens data has been cleared."
-                );
-              } catch (error) {
-                console.error("Error clearing data:", error);
-                vscode.window.showErrorMessage(
-                  "Failed to clear data: " + error
-                );
-              }
-            } else {
-              console.log("User cancelled data clearing via VS Code dialog");
-            }
-            break;
-
-          case "RUN_COMMAND":
-            if (message.command) {
-              // Notify dashboard that command is starting
-              panel.webview.postMessage({
-                type: "COMMAND_STARTED",
-                command: message.command,
+                return {
+                  value: key,
+                  label: sampleRun?.device
+                    ? getHardwareLabel(sampleRun.device)
+                    : `Device ${deviceId.slice(0, 8)}`,
+                };
               });
 
-              // Execute the command directly using our existing functionality
-              const folder = vscode.workspace.workspaceFolders?.[0];
-              if (folder) {
-                const taskDefinition: vscode.TaskDefinition = {
-                  type: "shell",
-                };
-                const result = await runAsTaskAndTime(
-                  message.command,
-                  taskDefinition,
-                  folder.uri
+              panel.webview.postMessage({
+                type: "DATA",
+                runs,
+                perCommand,
+                projects,
+                commands,
+                devices,
+              });
+              break;
+
+            case "EXPORT_DATA":
+              const exportFilters: Filters = message.filters || {};
+
+              // First, get a count of total records that match the filters
+              const totalAvailable = await eventStore.recent(
+                exportFilters,
+                50000
+              ); // Get more to check size
+              const totalCount = totalAvailable.length;
+
+              // Define export size limits
+              const EXPORT_WARNING_THRESHOLD = 5000;
+              const EXPORT_MAX_LIMIT = 25000;
+
+              let exportLimit = Math.min(totalCount, EXPORT_MAX_LIMIT);
+              let shouldProceed = true;
+
+              // Warn user about large exports
+              if (totalCount > EXPORT_WARNING_THRESHOLD) {
+                const choice = await vscode.window.showWarningMessage(
+                  `Large export detected: ${totalCount} records found. ` +
+                    `This may take time and create a large file. ` +
+                    `Export limit: ${exportLimit} records.`,
+                  { modal: true },
+                  "Export All",
+                  "Export Recent 1000",
+                  "Cancel"
                 );
 
-                // Don't save cancelled tasks to storage
-                if (result.cancelled) {
-                  console.log("Task was cancelled, not saving to storage");
+                if (choice === "Cancel") {
+                  shouldProceed = false;
+                } else if (choice === "Export Recent 1000") {
+                  exportLimit = 1000;
+                }
+              }
 
-                  // Notify dashboard that command was cancelled
+              if (!shouldProceed) {
+                break;
+              }
+
+              // Get the actual records to export
+              const exportRuns = await eventStore.recent(
+                exportFilters,
+                exportLimit
+              );
+
+              const exportData = {
+                version: CURRENT_DATA_VERSION,
+                exported: new Date().toISOString(),
+                exportedBy: "ProcessLens VS Code Extension",
+                filters: exportFilters,
+                totalRecords: exportRuns.length,
+                totalAvailable: totalCount, // Include info about total available
+                data: exportRuns,
+              };
+
+              const saveDataUri = await vscode.window.showSaveDialog({
+                defaultUri: vscode.Uri.joinPath(
+                  vscode.workspace.workspaceFolders?.[0]?.uri ||
+                    vscode.Uri.file(require("os").homedir()),
+                  `processlens-data-${
+                    new Date().toISOString().split("T")[0]
+                  }.json`
+                ),
+                filters: { "JSON files": ["json"] },
+              });
+
+              if (saveDataUri) {
+                await vscode.workspace.fs.writeFile(
+                  saveDataUri,
+                  Buffer.from(JSON.stringify(exportData, null, 2), "utf8")
+                );
+                let exportMessage = `Exported ${exportRuns.length} records to ${saveDataUri.fsPath}`;
+
+                // Add info about total available if export was limited
+                if (totalCount > exportRuns.length) {
+                  exportMessage += ` (${
+                    totalCount - exportRuns.length
+                  } additional records available)`;
+                }
+
+                vscode.window.showInformationMessage(exportMessage);
+              }
+              break;
+
+            case "EXPORT_PROFILE":
+              const profile = message.profile;
+
+              const saveProfileUri = await vscode.window.showSaveDialog({
+                defaultUri: vscode.Uri.joinPath(
+                  vscode.workspace.workspaceFolders?.[0]?.uri ||
+                    vscode.Uri.file(require("os").homedir()),
+                  `${profile.name
+                    .replace(/[^a-zA-Z0-9-]/g, "-")
+                    .toLowerCase()}.json`
+                ),
+                filters: { "JSON files": ["json"] },
+              });
+
+              if (saveProfileUri) {
+                await vscode.workspace.fs.writeFile(
+                  saveProfileUri,
+                  Buffer.from(JSON.stringify(profile, null, 2), "utf8")
+                );
+                vscode.window.showInformationMessage(
+                  `Profile exported to ${saveProfileUri.fsPath}`
+                );
+              }
+              break;
+
+            case "IMPORT_DATA":
+              const openDataUri = await vscode.window.showOpenDialog({
+                canSelectFiles: true,
+                canSelectFolders: false,
+                canSelectMany: false,
+                filters: { "JSON files": ["json"] },
+              });
+
+              if (openDataUri && openDataUri[0]) {
+                try {
+                  const dataContent = await vscode.workspace.fs.readFile(
+                    openDataUri[0]
+                  );
+                  const importedData = JSON.parse(dataContent.toString());
+
+                  // Validate version
+                  const versionCheck = validateDataVersion(
+                    importedData.version
+                  );
+                  if (!versionCheck.valid) {
+                    vscode.window.showErrorMessage(
+                      `Cannot import data: ${versionCheck.message}`
+                    );
+                    break;
+                  }
+
+                  if (importedData.data && Array.isArray(importedData.data)) {
+                    // Create backup before importing (if data exists)
+                    let backupPath: string | null = null;
+                    try {
+                      backupPath = await eventStore.createBackup();
+                      console.log(`Backup created at: ${backupPath}`);
+                    } catch (error) {
+                      // If backup fails because no data exists, that's okay for first import
+                      const errorMessage =
+                        error instanceof Error ? error.message : String(error);
+                      if (!errorMessage.includes("No data file exists")) {
+                        vscode.window.showWarningMessage(
+                          `Warning: Could not create backup before import: ${errorMessage}`
+                        );
+                      }
+                    }
+
+                    let importedCount = 0;
+                    let duplicateCount = 0;
+                    let errorCount = 0;
+
+                    for (const record of importedData.data) {
+                      try {
+                        // Check for duplicates before importing
+                        const isDuplicate = await eventStore.recordExists(
+                          record.tsStart,
+                          record.command,
+                          record.projectId
+                        );
+
+                        if (!isDuplicate) {
+                          await eventStore.append(record);
+                          importedCount++;
+                        } else {
+                          duplicateCount++;
+                        }
+                      } catch (error) {
+                        console.error("Error importing record:", error);
+                        errorCount++;
+                      }
+                    }
+
+                    // Show detailed import results
+                    let message = `Import completed: ${importedCount} new records`;
+                    if (duplicateCount > 0) {
+                      message += `, ${duplicateCount} duplicates skipped`;
+                    }
+                    if (errorCount > 0) {
+                      message += `, ${errorCount} errors`;
+                    }
+                    message += ` (version ${importedData.version})`;
+
+                    if (importedCount > 0) {
+                      // Add backup info to success message if backup was created
+                      if (backupPath) {
+                        message += ` (backup created: ${path.basename(
+                          backupPath
+                        )})`;
+                      }
+                      vscode.window.showInformationMessage(message);
+                      panel.webview.postMessage({ type: "UPDATED" });
+                    } else if (duplicateCount > 0) {
+                      vscode.window.showWarningMessage(
+                        `No new records imported - all ${duplicateCount} records were duplicates`
+                      );
+                    } else {
+                      vscode.window.showErrorMessage(
+                        `Import failed - ${errorCount} errors occurred`
+                      );
+                    }
+                  } else {
+                    vscode.window.showErrorMessage(
+                      "Invalid data format - missing or invalid data array"
+                    );
+                  }
+                } catch (error) {
+                  if (error instanceof SyntaxError) {
+                    vscode.window.showErrorMessage("Invalid JSON file format");
+                  } else {
+                    vscode.window.showErrorMessage(`Import failed: ${error}`);
+                  }
+                }
+              }
+              break;
+
+            case "IMPORT_PROFILE":
+              const openProfileUri = await vscode.window.showOpenDialog({
+                canSelectFiles: true,
+                canSelectFolders: false,
+                canSelectMany: false,
+                filters: { "JSON files": ["json"] },
+              });
+
+              if (openProfileUri && openProfileUri[0]) {
+                try {
+                  const profileContent = await vscode.workspace.fs.readFile(
+                    openProfileUri[0]
+                  );
+                  const importedProfile = JSON.parse(profileContent.toString());
+
+                  // Validate version
+                  const versionCheck = validateProfileVersion(
+                    importedProfile.version
+                  );
+                  if (!versionCheck.valid) {
+                    vscode.window.showErrorMessage(
+                      `Cannot import profile: ${versionCheck.message}`
+                    );
+                    break;
+                  }
+
+                  if (importedProfile.config) {
+                    vscode.window.showInformationMessage(
+                      `Successfully imported profile "${importedProfile.name}" (version ${importedProfile.version})`
+                    );
+
+                    panel.webview.postMessage({
+                      type: "PROFILE_IMPORTED",
+                      profile: importedProfile,
+                    });
+                  } else {
+                    vscode.window.showErrorMessage(
+                      "Invalid profile format - missing config section"
+                    );
+                  }
+                } catch (error) {
+                  if (error instanceof SyntaxError) {
+                    vscode.window.showErrorMessage("Invalid JSON file format");
+                  } else {
+                    vscode.window.showErrorMessage(
+                      `Profile import failed: ${error}`
+                    );
+                  }
+                }
+              }
+              break;
+
+            case "CONFIRM_CLEAR_DATA":
+              console.log("Received CONFIRM_CLEAR_DATA message from webview");
+              const confirmed = await vscode.window.showWarningMessage(
+                "⚠️ WARNING: This will permanently delete ALL ProcessLens data including timing history, device info, and project mappings.\n\nThis action cannot be undone.",
+                { modal: true },
+                "Clear All Data"
+              );
+
+              if (confirmed === "Clear All Data") {
+                console.log("User confirmed data clearing via VS Code dialog");
+                // Proceed with clearing
+                try {
+                  console.log("Attempting to clear event store...");
+                  await eventStore.clear();
+                  console.log("Event store cleared successfully");
+
+                  // Also clear device ID to fully reset
+                  console.log("Clearing device ID from global state...");
+                  await context.globalState.update(
+                    "processlens.deviceId",
+                    undefined
+                  );
+                  console.log("Device ID cleared successfully");
+
+                  updateStatusBar(); // Reset status bar
+                  console.log("Sending DATA_CLEARED message to webview");
+                  panel.webview.postMessage({ type: "DATA_CLEARED" });
+                  vscode.window.showInformationMessage(
+                    "All ProcessLens data has been cleared."
+                  );
+                } catch (error) {
+                  console.error("Error clearing data:", error);
+                  vscode.window.showErrorMessage(
+                    "Failed to clear data: " + error
+                  );
+                }
+              } else {
+                console.log("User cancelled data clearing via VS Code dialog");
+              }
+              break;
+
+            case "RUN_COMMAND":
+              if (message.command) {
+                // Notify dashboard that command is starting
+                panel.webview.postMessage({
+                  type: "COMMAND_STARTED",
+                  command: message.command,
+                });
+
+                // Execute the command directly using our existing functionality
+                const folder = vscode.workspace.workspaceFolders?.[0];
+                if (folder) {
+                  const taskDefinition: vscode.TaskDefinition = {
+                    type: "shell",
+                  };
+                  const result = await runAsTaskAndTime(
+                    message.command,
+                    taskDefinition,
+                    folder.uri
+                  );
+
+                  // Don't save cancelled tasks to storage
+                  if (result.cancelled) {
+                    console.log("Task was cancelled, not saving to storage");
+
+                    // Notify dashboard that command was cancelled
+                    panel.webview.postMessage({
+                      type: "COMMAND_COMPLETED",
+                      command: message.command,
+                      cancelled: true,
+                    });
+
+                    // Update status bar back to idle
+                    updateStatusBar();
+                    return;
+                  }
+
+                  // Save the event to storage
+                  const deviceId = await getOrCreateDeviceId(context);
+                  const hardwareInfo = await getHardwareInfo();
+                  const hardwareHash = computeHardwareHash(hardwareInfo);
+                  const projectInfo = await getProjectInfo(folder);
+
+                  const eventRecord = {
+                    tsStart: result.tsStart,
+                    tsEnd: result.tsEnd,
+                    durationMs: result.durationMs,
+                    exitCode: result.exitCode || 0,
+                    command: message.command,
+                    cwd: folder.uri.fsPath,
+                    projectId: projectInfo?.projectId || "",
+                    projectName: projectInfo?.projectName || "",
+                    // Enhanced project identification for global database
+                    globalProjectId: projectInfo?.globalProjectId,
+                    localProjectId: projectInfo?.localProjectId,
+                    repositoryName: projectInfo?.repositoryName,
+                    gitOriginUrl: projectInfo?.gitOriginUrl,
+                    deviceId,
+                    hardwareHash,
+                    device: hardwareInfo,
+                  };
+
+                  await eventStore.append(eventRecord);
+
+                  // Update status bar with result
+                  updateStatusBar({
+                    success: result.success,
+                    durationMs: result.durationMs,
+                  });
+
+                  // Notify dashboard that command is completed
                   panel.webview.postMessage({
                     type: "COMMAND_COMPLETED",
                     command: message.command,
-                    cancelled: true,
+                    success: result.success,
+                    durationMs: result.durationMs,
                   });
 
-                  // Update status bar back to idle
-                  updateStatusBar();
-                  return;
+                  // Refresh dashboards AFTER event is saved
+                  refreshAllDashboards();
+
+                  // Show completion notification
+                  const duration = formatDuration(result.durationMs);
+                  const status = result.success ? "✅" : "❌";
+                  const notificationPromise =
+                    vscode.window.showInformationMessage(
+                      `${status} Command completed in ${duration}`
+                    );
+
+                  // Auto-dismiss after 2.5 seconds
+                  Promise.race([
+                    notificationPromise,
+                    new Promise((resolve) => setTimeout(resolve, 2500)),
+                  ]);
                 }
-
-                // Save the event to storage
-                const deviceId = await getOrCreateDeviceId(context);
-                const hardwareInfo = await getHardwareInfo();
-                const hardwareHash = computeHardwareHash(hardwareInfo);
-                const projectInfo = await getProjectInfo(folder);
-
-                const eventRecord = {
-                  tsStart: result.tsStart,
-                  tsEnd: result.tsEnd,
-                  durationMs: result.durationMs,
-                  exitCode: result.exitCode || 0,
-                  command: message.command,
-                  cwd: folder.uri.fsPath,
-                  projectId: projectInfo?.projectId || "",
-                  projectName: projectInfo?.projectName || "",
-                  // Enhanced project identification for global database
-                  globalProjectId: projectInfo?.globalProjectId,
-                  localProjectId: projectInfo?.localProjectId,
-                  repositoryName: projectInfo?.repositoryName,
-                  gitOriginUrl: projectInfo?.gitOriginUrl,
-                  deviceId,
-                  hardwareHash,
-                  device: hardwareInfo,
-                };
-
-                await eventStore.append(eventRecord);
-
-                // Update status bar with result
-                updateStatusBar({
-                  success: result.success,
-                  durationMs: result.durationMs,
-                });
-
-                // Notify dashboard that command is completed
-                panel.webview.postMessage({
-                  type: "COMMAND_COMPLETED",
-                  command: message.command,
-                  success: result.success,
-                  durationMs: result.durationMs,
-                });
-
-                // Refresh dashboards AFTER event is saved
-                refreshAllDashboards();
-
-                // Show completion notification
-                const duration = formatDuration(result.durationMs);
-                const status = result.success ? "✅" : "❌";
-                const notificationPromise =
-                  vscode.window.showInformationMessage(
-                    `${status} Command completed in ${duration}`
-                  );
-
-                // Auto-dismiss after 2.5 seconds
-                Promise.race([
-                  notificationPromise,
-                  new Promise((resolve) => setTimeout(resolve, 2500)),
-                ]);
               }
-            }
-            break;
+              break;
 
-          case "CANCEL_TASK":
-            if (currentTaskExecution) {
-              currentTaskExecution.terminate();
-              currentTaskExecution = undefined;
+            case "CANCEL_TASK":
+              if (currentTaskExecution) {
+                currentTaskExecution.terminate();
+                currentTaskExecution = undefined;
 
-              // Notify all dashboards that task was cancelled
-              dashboardPanels.forEach((panel) => {
-                if (panel.webview) {
+                // Notify all dashboards that task was cancelled
+                dashboardPanels.forEach((panel) => {
+                  if (panel.webview) {
+                    panel.webview.postMessage({
+                      type: "COMMAND_COMPLETED",
+                      cancelled: true,
+                    });
+                  }
+                });
+
+                // Update status bar
+                updateStatusBar();
+
+                vscode.window.showInformationMessage("Task cancelled");
+              }
+              break;
+
+            case "CONFIRM_DELETE_RUN":
+              if (message.runId) {
+                const result = await vscode.window.showWarningMessage(
+                  `Are you sure you want to delete this run? This action cannot be undone.`,
+                  { modal: true },
+                  "Delete Run"
+                );
+
+                if (result === "Delete Run") {
+                  console.log("User confirmed run deletion");
+
+                  // Parse the run ID to extract timestamp and command
+                  const [tsStart, ...commandParts] = message.runId.split("-");
+                  const command = commandParts.join("-");
+
+                  // Delete the run from storage
+                  await eventStore.deleteRun(parseInt(tsStart), command);
+
+                  // Notify dashboard that run was deleted
                   panel.webview.postMessage({
-                    type: "COMMAND_COMPLETED",
-                    cancelled: true,
+                    type: "RUN_DELETED",
                   });
+
+                  vscode.window.showInformationMessage(
+                    "Run deleted successfully"
+                  );
+                } else {
+                  console.log("User cancelled run deletion");
                 }
+              }
+              break;
+
+            case "OPEN_COFFEE_LINK":
+              vscode.env.openExternal(
+                vscode.Uri.parse("https://buymeacoffee.com/processlens")
+              );
+              break;
+          }
+        });
+      }
+    );
+
+    // Generate dummy data command (for testing)
+    const generateDummyData = vscode.commands.registerCommand(
+      "processlens.generateDummyData",
+      async () => {
+        const options = [
+          {
+            label: "Small Dataset",
+            description: "100 records over 7 days",
+            value: { records: 100, days: 7 },
+          },
+          {
+            label: "Medium Dataset",
+            description: "500 records over 30 days",
+            value: { records: 500, days: 30 },
+          },
+          {
+            label: "Large Dataset",
+            description: "2000 records over 90 days",
+            value: { records: 2000, days: 90 },
+          },
+          {
+            label: "Performance Test",
+            description: "5000 records over 180 days",
+            value: { records: 5000, days: 180 },
+          },
+        ];
+
+        const selected = await vscode.window.showQuickPick(options, {
+          placeHolder: "Select dummy data size for testing",
+        });
+
+        if (!selected) {
+          return;
+        }
+
+        const generator = new DummyDataGenerator();
+
+        try {
+          vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: "Generating dummy data...",
+              cancellable: false,
+            },
+            async (progress) => {
+              progress.report({
+                increment: 0,
+                message: "Creating realistic test data...",
               });
 
-              // Update status bar
-              updateStatusBar();
-
-              vscode.window.showInformationMessage("Task cancelled");
-            }
-            break;
-
-          case "CONFIRM_DELETE_RUN":
-            if (message.runId) {
-              const result = await vscode.window.showWarningMessage(
-                `Are you sure you want to delete this run? This action cannot be undone.`,
-                { modal: true },
-                "Delete Run"
+              const dummyRecords = generator.generateDummyData(
+                selected.value.records,
+                selected.value.days
               );
 
-              if (result === "Delete Run") {
-                console.log("User confirmed run deletion");
+              progress.report({
+                increment: 50,
+                message: "Saving to storage...",
+              });
 
-                // Parse the run ID to extract timestamp and command
-                const [tsStart, ...commandParts] = message.runId.split("-");
-                const command = commandParts.join("-");
+              // Save all records to storage
+              for (let i = 0; i < dummyRecords.length; i++) {
+                await eventStore.append(dummyRecords[i]);
 
-                // Delete the run from storage
-                await eventStore.deleteRun(parseInt(tsStart), command);
-
-                // Notify dashboard that run was deleted
-                panel.webview.postMessage({
-                  type: "RUN_DELETED",
-                });
-
-                vscode.window.showInformationMessage(
-                  "Run deleted successfully"
-                );
-              } else {
-                console.log("User cancelled run deletion");
+                // Update progress every 100 records
+                if (i % 100 === 0) {
+                  progress.report({
+                    increment: (50 / dummyRecords.length) * 100,
+                    message: `Saved ${i + 1}/${dummyRecords.length} records...`,
+                  });
+                }
               }
-            }
-            break;
 
-          case "OPEN_COFFEE_LINK":
-            vscode.env.openExternal(
-              vscode.Uri.parse("https://buymeacoffee.com/processlens")
-            );
-            break;
+              progress.report({ increment: 100, message: "Complete!" });
+            }
+          );
+
+          vscode.window.showInformationMessage(
+            `✅ Generated ${selected.value.records} dummy records over ${selected.value.days} days. Open the dashboard to see the data!`
+          );
+
+          // Refresh any open dashboards
+          refreshAllDashboards();
+        } catch (error) {
+          vscode.window.showErrorMessage(
+            `Failed to generate dummy data: ${error}`
+          );
         }
-      });
-    }
-  );
-
-  // Generate dummy data command (for testing)
-  const generateDummyData = vscode.commands.registerCommand(
-    "processlens.generateDummyData",
-    async () => {
-      const options = [
-        {
-          label: "Small Dataset",
-          description: "100 records over 7 days",
-          value: { records: 100, days: 7 },
-        },
-        {
-          label: "Medium Dataset",
-          description: "500 records over 30 days",
-          value: { records: 500, days: 30 },
-        },
-        {
-          label: "Large Dataset",
-          description: "2000 records over 90 days",
-          value: { records: 2000, days: 90 },
-        },
-        {
-          label: "Performance Test",
-          description: "5000 records over 180 days",
-          value: { records: 5000, days: 180 },
-        },
-      ];
-
-      const selected = await vscode.window.showQuickPick(options, {
-        placeHolder: "Select dummy data size for testing",
-      });
-
-      if (!selected) {
-        return;
       }
+    );
 
-      const generator = new DummyDataGenerator();
+    context.subscriptions.push(runCommand, openDashboard, generateDummyData);
 
-      try {
-        vscode.window.withProgress(
-          {
-            location: vscode.ProgressLocation.Notification,
-            title: "Generating dummy data...",
-            cancellable: false,
-          },
-          async (progress) => {
-            progress.report({
-              increment: 0,
-              message: "Creating realistic test data...",
-            });
-
-            const dummyRecords = generator.generateDummyData(
-              selected.value.records,
-              selected.value.days
-            );
-
-            progress.report({ increment: 50, message: "Saving to storage..." });
-
-            // Save all records to storage
-            for (let i = 0; i < dummyRecords.length; i++) {
-              await eventStore.append(dummyRecords[i]);
-
-              // Update progress every 100 records
-              if (i % 100 === 0) {
-                progress.report({
-                  increment: (50 / dummyRecords.length) * 100,
-                  message: `Saved ${i + 1}/${dummyRecords.length} records...`,
-                });
-              }
-            }
-
-            progress.report({ increment: 100, message: "Complete!" });
-          }
-        );
-
-        vscode.window.showInformationMessage(
-          `✅ Generated ${selected.value.records} dummy records over ${selected.value.days} days. Open the dashboard to see the data!`
-        );
-
-        // Refresh any open dashboards
-        refreshAllDashboards();
-      } catch (error) {
-        vscode.window.showErrorMessage(
-          `Failed to generate dummy data: ${error}`
-        );
-      }
-    }
-  );
-
-  context.subscriptions.push(runCommand, openDashboard, generateDummyData);
-  
-  console.log('ProcessLens extension activated successfully!');
+    console.log("ProcessLens extension activated successfully!");
   } catch (error) {
-    console.error('Failed to activate ProcessLens extension:', error);
+    console.error("Failed to activate ProcessLens extension:", error);
     vscode.window.showErrorMessage(`ProcessLens failed to activate: ${error}`);
   }
 }
