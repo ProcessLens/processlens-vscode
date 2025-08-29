@@ -7,4 +7,7 @@ node_modules/
 media/compiled/
 tsconfig.dashboard.json
 
+# Temporary README files during packaging
+README.dev.md
+
 

@@ -3,7 +3,7 @@
   "displayName": "ProcessLens (Beta)",
   "description": "🚧 BETA: Track and analyze build, test, and other process times to gain insights and iterate faster. Feedback welcome!",
   "publisher": "processlens",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -35,7 +35,8 @@
     "commands": [
       {
         "command": "processlens.runCommand",
-        "title": "ProcessLens: Run"
+        "title": "ProcessLens: Run",
+        "enablement": "workspaceFolderCount > 0"
       },
       {
         "command": "processlens.openDashboard",
@@ -105,7 +106,9 @@
     "bundle:dashboard": "node scripts/bundle-dashboard.js",
     "compile:extension": "tsc -p ./",
     "watch": "tsc -w -p ./",
-    "package": "vsce package --allow-star-activation",
+    "package": "npm run prepackage && npm run swap-readme && vsce package --allow-star-activation && npm run restore-readme",
+    "swap-readme": "cp README.md README.dev.md && cp README.marketplace.md README.md",
+    "restore-readme": "cp README.dev.md README.md && rm README.dev.md",
     "lint": "echo 'Linting not configured yet'",
     "test": "echo 'Tests temporarily disabled for release'",
     "test:watch": "vitest",

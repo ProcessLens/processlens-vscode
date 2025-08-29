@@ -681,6 +681,19 @@ export function activate(context: vscode.ExtensionContext) {
     const runCommand = vscode.commands.registerCommand(
       "processlens.runCommand",
       async () => {
+        // Check if any workspace is open
+        if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+          vscode.window.showWarningMessage(
+            "ProcessLens: Please open a folder or workspace to run commands.",
+            "Open Folder"
+          ).then(selection => {
+            if (selection === "Open Folder") {
+              vscode.commands.executeCommand("vscode.openFolder");
+            }
+          });
+          return;
+        }
+
         const folder = await pickWorkspaceFolder();
 
         // Get recent commands and package.json scripts

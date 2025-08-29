@@ -47,7 +47,7 @@ jobs:
         run: npm version ${{ github.event.inputs.version }} --no-git-tag-version
 
       - name: Package extension
-        run: npx vsce package --allow-star-activation
+        run: npm run package
 
       - name: Get package info
         id: package

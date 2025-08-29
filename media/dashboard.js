@@ -2448,6 +2448,8 @@ window.EventHandlers = class EventHandlers {
         document.querySelector(".loading")?.classList.add("element-hidden");
         document.querySelector(".cards")?.classList.add("element-hidden");
         document.querySelector(".empty-state")?.classList.remove("element-hidden");
+        // Reset global stats to zero
+        TableRenderer.renderGlobalStats([], [], [], [], []);
     }
     static applyProfile(profile) {
         if (profile.filters) {
