@@ -685,6 +685,9 @@ export class EventHandlers {
     document.querySelector(".loading")?.classList.add("element-hidden");
     document.querySelector(".cards")?.classList.add("element-hidden");
     document.querySelector(".empty-state")?.classList.remove("element-hidden");
+
+    // Reset global stats to zero
+    TableRenderer.renderGlobalStats([], [], [], [], []);
   }
 
   private static applyProfile(profile: any): void {

@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.1.3
+
+### 🐛 Bug Fixes
+
+- **Fixed workspace validation**: Commands now properly check for open workspace and show helpful messages
+- **Fixed global stats reset**: Top-level stats (Total Runs, Commands Tracked, etc.) now reset to zero after "Clear All Data"
+- **Fixed GitHub Actions**: Updated release pipeline with proper permissions and modern GitHub CLI
+- **Fixed OS warnings**: Updated CI to use specific OS versions instead of generic labels
+
+### 📝 Documentation
+
+- **Optimized marketplace description**: Created concise README for VS Code Marketplace (51 lines vs 275 lines)
+- **Added beta messaging**: Clear beta indicators and feedback channels throughout
+- **Enhanced multi-editor support**: Added compatibility info for Cursor, Windsurf, VSCodium, etc.
+
+### 🔧 Technical Improvements
+
+- **Improved build process**: Automatic README swapping for marketplace vs development
+- **Better error handling**: Graceful handling of no-workspace scenarios
+- **Enhanced release automation**: Modern GitHub Actions with proper permissions
+
 ## 0.1.2
 
 ### 🚀 Major Features
