@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4
+
+### 🐛 Bug Fixes
+
+- **Fixed extension icon**: Replaced empty icon file with valid 128x128 PNG for proper marketplace display
+
 ## 0.1.3
 
 ### 🐛 Bug Fixes
