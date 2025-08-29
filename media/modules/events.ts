@@ -347,6 +347,7 @@ export class EventHandlers {
         break;
       case "UPDATED":
         // Reload data when commands are executed
+        console.log("Dashboard received UPDATED message, reloading data...");
         FilterManager.loadData();
         break;
       case "COMMAND_STARTED":

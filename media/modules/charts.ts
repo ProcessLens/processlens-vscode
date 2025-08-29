@@ -6,6 +6,119 @@ import { dashboardState } from "./state.js";
 declare var Chart: any;
 
 export class ChartRenderer {
+  // Chart type preference stored in dashboard state
+  private static getChartType(dataPointCount: number): string {
+    // Auto-select chart type based on data size
+    if (dataPointCount > 200) return "bar"; // Aggregated bar chart for large datasets
+    if (dataPointCount > 100) return "scatter"; // Scatter plot for medium datasets
+    return "line"; // Line chart for small datasets
+  }
+
+  private static aggregateDataForBarChart(runs: EventRecord[]): any[] {
+    // Group data by time periods (days) for bar chart
+    const dayGroups = new Map<
+      string,
+      { total: number; count: number; successes: number }
+    >();
+
+    runs.forEach((run) => {
+      const day = new Date(run.tsEnd).toISOString().split("T")[0]; // YYYY-MM-DD
+      const existing = dayGroups.get(day) || {
+        total: 0,
+        count: 0,
+        successes: 0,
+      };
+
+      existing.total += run.durationMs;
+      existing.count += 1;
+      existing.successes += (
+        run.success !== undefined ? run.success : (run as any).exitCode === 0
+      )
+        ? 1
+        : 0;
+
+      dayGroups.set(day, existing);
+    });
+
+    // Convert to chart data
+    return Array.from(dayGroups.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([day, stats]) => ({
+        x: new Date(day), // Use Date object for consistency
+        y: Math.round(stats.total / stats.count), // Average duration
+        count: stats.count,
+        successRate: Math.round((stats.successes / stats.count) * 100),
+        date: new Date(day),
+      }));
+  }
+
+  private static getDatasetConfig(
+    chartType: string,
+    data: any[],
+    pointBackgroundColors: string[],
+    pointRadii: number[],
+    pointColors: string[],
+    isAggregated: boolean
+  ): any {
+    const baseConfig = {
+      label: isAggregated ? "Daily Average Duration" : "Duration (ms)",
+      data: data,
+    };
+
+    if (chartType === "bar") {
+      return {
+        ...baseConfig,
+        backgroundColor: "rgba(59, 130, 246, 0.6)",
+        borderColor: "#3B82F6",
+        borderWidth: 1,
+      };
+    } else if (chartType === "scatter") {
+      return {
+        ...baseConfig,
+        backgroundColor: pointBackgroundColors,
+        borderColor: pointColors.map((color) => color + "CC"),
+        pointRadius: pointRadii,
+        pointHoverRadius: pointRadii.map((r: number) => r + 2),
+        pointBorderWidth: 1,
+        pointHoverBorderWidth: 2,
+        showLine: false, // No connecting lines for scatter plot
+      };
+    } else {
+      // Line chart configuration (original)
+      return {
+        ...baseConfig,
+        borderColor: (ctx: any) => {
+          const chart = ctx.chart;
+          const { ctx: canvasCtx, chartArea } = chart;
+          if (!chartArea) return "#4FC3F7";
+
+          const gradient = canvasCtx.createLinearGradient(
+            0,
+            chartArea.top,
+            0,
+            chartArea.bottom
+          );
+          gradient.addColorStop(0, "#60A5FA");
+          gradient.addColorStop(0.5, "#3B82F6");
+          gradient.addColorStop(1, "#1E40AF");
+          return gradient;
+        },
+        backgroundColor: "rgba(59, 130, 246, 0.05)",
+        borderWidth: 2.5,
+        fill: true,
+        tension: 0.2,
+        pointBackgroundColor: pointBackgroundColors,
+        pointRadius: pointRadii,
+        pointHoverRadius: pointRadii.map((r: number) => r + 2),
+        pointBorderColor: pointColors.map((color) => color + "CC"),
+        pointBorderWidth: 2,
+        pointHoverBorderWidth: 3,
+        pointHoverBorderColor: pointColors,
+        showLine: true,
+      };
+    }
+  }
+
   public static renderChart(runs: EventRecord[]): void {
     // Check if Chart.js is available
     if (typeof Chart === "undefined") {
@@ -38,20 +151,37 @@ export class ChartRenderer {
       throw new Error("No valid data to chart");
     }
 
-    // Prepare data with proper mapping
-    const chartData = runs.map((run) => ({
-      x: new Date(run.tsEnd),
-      y: run.durationMs,
-      success:
-        run.success !== undefined ? run.success : (run as any).exitCode === 0,
-      command: run.command,
-      deviceId: run.deviceId,
-      hardwareHash: run.hardwareHash,
-      projectName: run.projectName,
-      // Include device data for proper OS detection
-      device: run.device,
-      osVersion: run.osVersion,
-    }));
+    // Determine optimal chart type based on data size
+    const chartType = ChartRenderer.getChartType(runs.length);
+    console.log(`Rendering ${chartType} chart for ${runs.length} data points`);
+
+    // Prepare data based on chart type
+    let chartData: any[];
+    let isAggregated = false;
+
+    if (chartType === "bar") {
+      // Aggregate data by day for bar chart
+      chartData = ChartRenderer.aggregateDataForBarChart(runs);
+      isAggregated = true;
+      console.log(
+        `Aggregated ${runs.length} runs into ${chartData.length} daily averages`
+      );
+    } else {
+      // Use individual data points for line/scatter charts
+      chartData = runs.map((run) => ({
+        x: new Date(run.tsEnd),
+        y: run.durationMs,
+        success:
+          run.success !== undefined ? run.success : (run as any).exitCode === 0,
+        command: run.command,
+        deviceId: run.deviceId,
+        hardwareHash: run.hardwareHash,
+        projectName: run.projectName,
+        // Include device data for proper OS detection
+        device: run.device,
+        osVersion: run.osVersion,
+      }));
+    }
 
     // Detect hardware changes for annotations
     const hardwareChanges: any[] = [];
@@ -122,45 +252,17 @@ export class ChartRenderer {
     });
 
     dashboardState.chart = new Chart(ctx, {
-      type: "line",
+      type: chartType,
       data: {
         datasets: [
-          {
-            label: "Duration (ms)",
-            data: chartDataWithTimestamps,
-            // Modern gradient line
-            borderColor: (ctx: any) => {
-              const chart = ctx.chart;
-              const { ctx: canvasCtx, chartArea } = chart;
-              if (!chartArea) return "#4FC3F7";
-
-              const gradient = canvasCtx.createLinearGradient(
-                0,
-                chartArea.top,
-                0,
-                chartArea.bottom
-              );
-              gradient.addColorStop(0, "#60A5FA"); // Light blue
-              gradient.addColorStop(0.5, "#3B82F6"); // Medium blue
-              gradient.addColorStop(1, "#1E40AF"); // Dark blue
-              return gradient;
-            },
-            backgroundColor: "rgba(59, 130, 246, 0.05)", // Very subtle fill
-            borderWidth: 2.5,
-            fill: true,
-            tension: 0.2, // Slight curve for modern look
-            stepped: false,
-            // Modern point styling
-            pointBackgroundColor: pointBackgroundColors,
-            pointRadius: pointRadii,
-            pointHoverRadius: pointRadii.map((r) => r + 2),
-            pointBorderColor: pointColors.map((color) => color + "CC"), // Semi-transparent border
-            pointBorderWidth: 2,
-            pointHoverBorderWidth: 3,
-            pointHoverBorderColor: pointColors,
-            // Enhanced line display
-            showLine: true,
-          },
+          ChartRenderer.getDatasetConfig(
+            chartType,
+            chartDataWithTimestamps,
+            pointBackgroundColors,
+            pointRadii,
+            pointColors,
+            isAggregated
+          ),
         ],
       },
       options: {
@@ -230,10 +332,28 @@ export class ChartRenderer {
           tooltip: {
             callbacks: {
               title: (context: any) => {
+                if (isAggregated) {
+                  const dataPoint = chartData[context[0].dataIndex];
+                  return `Daily Average - ${dataPoint.date.toLocaleDateString()}`;
+                }
                 const dataPoint = chartData[context[0].dataIndex];
                 return DataFormatters.truncateCommand(dataPoint.command, 50);
               },
               label: (context: any) => {
+                if (isAggregated) {
+                  const dataPoint = chartData[context.dataIndex];
+                  const duration = DataFormatters.formatDuration(
+                    context.parsed.y,
+                    dashboardState.timeFormat
+                  );
+                  return [
+                    `Average Duration: ${duration}`,
+                    `Total Runs: ${dataPoint.count}`,
+                    `Success Rate: ${dataPoint.successRate}%`,
+                    `Date: ${dataPoint.date.toLocaleDateString()}`,
+                  ];
+                }
+
                 const dataPoint = chartData[context.dataIndex];
                 const duration = DataFormatters.formatDuration(
                   context.parsed.y,
@@ -276,13 +396,26 @@ export class ChartRenderer {
           mode: "nearest",
         },
         animation: {
-          duration: 1200,
+          duration: 800, // Reduced from 1200ms for faster loading
           easing: "easeInOutCubic",
-          // Stagger point animations for modern effect
+          // Smart stagger: constant total animation time regardless of dataset size
           delay: (context: any) => {
-            return context.type === "data" && context.mode === "default"
-              ? context.dataIndex * 50
-              : 0;
+            if (context.type === "data" && context.mode === "default") {
+              const totalPoints = chartDataWithTimestamps.length;
+
+              // Disable stagger for very large datasets (>500 points) for performance
+              if (totalPoints > 500) {
+                return 0;
+              }
+
+              const maxStaggerTime = 800; // Maximum 0.8 seconds for all stagger delays
+              const delayPerPoint =
+                totalPoints > 0
+                  ? Math.min(30, maxStaggerTime / totalPoints)
+                  : 0;
+              return context.dataIndex * delayPerPoint;
+            }
+            return 0;
           },
         },
         // Enhanced hover interactions

@@ -224,8 +224,11 @@ function updateStatusBar(
 }
 
 function refreshAllDashboards() {
-  dashboardPanels.forEach((panel) => {
+  console.log(`Refreshing ${dashboardPanels.length} dashboard panels...`);
+  dashboardPanels.forEach((panel, index) => {
+    console.log(`Panel ${index}: visible=${panel.visible}`);
     if (panel.visible) {
+      console.log(`Sending UPDATED message to panel ${index}`);
       panel.webview.postMessage({ type: "UPDATED" });
     }
   });
@@ -944,7 +947,7 @@ export function activate(context: vscode.ExtensionContext) {
             case "LOAD":
               const filters: Filters = message.filters || {};
               const trendPeriodDays = message.trendPeriodDays || 7;
-              const runs = await eventStore.recent(filters, 50);
+              const runs = await eventStore.recent(filters, 1000); // Increased from 50 to 1000
               const perCommand = await eventStore.aggregateByCommand(
                 filters,
                 trendPeriodDays
@@ -1545,8 +1548,11 @@ export function activate(context: vscode.ExtensionContext) {
             `✅ Generated ${selected.value.records} dummy records over ${selected.value.days} days. Open the dashboard to see the data!`
           );
 
-          // Refresh any open dashboards
-          refreshAllDashboards();
+          // Refresh any open dashboards with a small delay to ensure data is written
+          setTimeout(() => {
+            console.log("Refreshing dashboards after dummy data generation...");
+            refreshAllDashboards();
+          }, 500);
         } catch (error) {
           vscode.window.showErrorMessage(
             `Failed to generate dummy data: ${error}`
