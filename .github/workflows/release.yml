@@ -125,11 +125,21 @@ jobs:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
         run: |
           if [ -n "$OVSX_PAT" ]; then
-            if npx ovsx publish ${{ steps.package.outputs.filename }} -p $OVSX_PAT; then
-              echo "✅ Published to Open VSX Registry"
+            echo "🔍 Checking Open VSX namespace..."
+            if npx ovsx get-namespace processlens -p $OVSX_PAT >/dev/null 2>&1; then
+              echo "✅ Namespace 'processlens' exists"
+              if npx ovsx publish ${{ steps.package.outputs.filename }} -p $OVSX_PAT; then
+                echo "✅ Published to Open VSX Registry"
+              else
+                echo "⚠️ Failed to publish to Open VSX Registry (version may already exist)"
+                echo "This is not a critical error - continuing with workflow"
+              fi
             else
-              echo "⚠️ Failed to publish to Open VSX Registry (version may already exist)"
-              echo "This is not a critical error - continuing with workflow"
+              echo "❌ Namespace 'processlens' does not exist on Open VSX Registry"
+              echo "📋 To fix this, run the following command manually:"
+              echo "   npx ovsx create-namespace processlens -p \$OVSX_PAT"
+              echo "   See: https://github.com/eclipse/openvsx/wiki/Publishing-Extensions"
+              echo "⚠️ Skipping Open VSX publish until namespace is created"
             fi
           else
             echo "⚠️ OVSX_PAT secret not found. Skipping Open VSX publish."
