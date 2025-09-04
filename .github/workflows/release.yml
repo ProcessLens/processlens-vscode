@@ -58,7 +58,21 @@ jobs:
           echo "name=$NAME" >> $GITHUB_OUTPUT
           echo "filename=$NAME-$VERSION.vsix" >> $GITHUB_OUTPUT
 
+      - name: Check if release exists
+        id: check_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view v${{ steps.package.outputs.version }} >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Release v${{ steps.package.outputs.version }} already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "✅ Release v${{ steps.package.outputs.version }} does not exist"
+          fi
+
       - name: Create Release
+        if: steps.check_release.outputs.exists == 'false'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -80,14 +94,26 @@ jobs:
           Report bugs or request features at: https://github.com/ProcessLens/processlens-vscode/issues" \
             ${{ steps.package.outputs.filename }}
 
+      - name: Upload asset to existing release
+        if: steps.check_release.outputs.exists == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "📎 Uploading asset to existing release v${{ steps.package.outputs.version }}"
+          gh release upload v${{ steps.package.outputs.version }} ${{ steps.package.outputs.filename }} --clobber
+
       - name: Publish to VS Code Marketplace
         if: success()
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
           if [ -n "$VSCE_PAT" ]; then
-            npx vsce publish --packagePath ${{ steps.package.outputs.filename }}
-            echo "✅ Published to VS Code Marketplace"
+            if npx vsce publish --packagePath ${{ steps.package.outputs.filename }}; then
+              echo "✅ Published to VS Code Marketplace"
+            else
+              echo "⚠️ Failed to publish to VS Code Marketplace (version may already exist)"
+              echo "This is not a critical error - continuing with workflow"
+            fi
           else
             echo "⚠️ VSCE_PAT secret not found. Skipping marketplace publish."
             echo "To enable automatic publishing, add your Personal Access Token as VSCE_PAT secret."
@@ -99,8 +125,12 @@ jobs:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
         run: |
           if [ -n "$OVSX_PAT" ]; then
-            npx ovsx publish ${{ steps.package.outputs.filename }} -p $OVSX_PAT
-            echo "✅ Published to Open VSX Registry"
+            if npx ovsx publish ${{ steps.package.outputs.filename }} -p $OVSX_PAT; then
+              echo "✅ Published to Open VSX Registry"
+            else
+              echo "⚠️ Failed to publish to Open VSX Registry (version may already exist)"
+              echo "This is not a critical error - continuing with workflow"
+            fi
           else
             echo "⚠️ OVSX_PAT secret not found. Skipping Open VSX publish."
           fi

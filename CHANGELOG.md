@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.5
+
+### 🔧 Technical Improvements
+
+- **Enhanced release pipeline**: Added robust handling for existing releases and marketplace versions
+- **Improved CI/CD reliability**: Pipeline now gracefully handles re-runs without breaking on duplicate versions
+- **Better error handling**: Marketplace publishing failures no longer break the entire release process
+
 ## 0.1.4
 
 ### 🐛 Bug Fixes
